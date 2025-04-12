@@ -33,6 +33,11 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       }
+    },
+
+    "jsEngine": "hermes",
+    "experimental": {
+      "newArchEnabled": true
     }
   }
 }
