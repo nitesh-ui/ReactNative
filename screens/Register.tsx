@@ -8,7 +8,7 @@ import {
   Platform,
   ScrollView,
 } from 'react-native';
-import { Button, useTheme } from 'react-native-paper';
+import { Button, useTheme, Menu, Divider } from 'react-native-paper';
 import { Picker } from '@react-native-picker/picker';
 import { Feather } from '@expo/vector-icons';
 import { MotiView } from 'moti';
@@ -36,6 +36,10 @@ export default function Register() {
     password: '',
     confirmPassword: '',
   });
+
+  const [menuVisible, setMenuVisible] = useState(false);
+  const openMenu = () => setMenuVisible(true);
+  const closeMenu = () => setMenuVisible(false);
 
   const validateAndSubmit = () => {
     const newErrors = { email: '', phone: '', password: '', confirmPassword: '' };
@@ -113,28 +117,53 @@ export default function Register() {
               borderRadius: 12,
               overflow: 'hidden',
             }}>
-            <View style={{ width: 100, borderRightWidth: 1, borderColor: '#ddd' }}>
-              <Picker
-                selectedValue={countryCode}
-                onValueChange={setCountryCode}
-                style={{ height: 50 }}>
-                {countryCodes.map((c) => (
-                  <Picker.Item key={c.value} label={c.label} value={c.value} />
-                ))}
-              </Picker>
-            </View>
-            <TextInput
-              placeholder="Phone Number"
-              placeholderTextColor="#aaa"
-              keyboardType="phone-pad"
-              value={phone}
-              onChangeText={setPhone}
+            <View
               style={{
-                flex: 1,
-                paddingVertical: 12,
-                paddingHorizontal: 16,
-              }}
-            />
+                flexDirection: 'row',
+                alignItems: 'center',
+                backgroundColor: 'white',
+                borderRadius: 12,
+                overflow: 'hidden',
+              }}>
+              <Menu
+                visible={menuVisible}
+                onDismiss={closeMenu}
+                anchor={
+                  <TouchableOpacity
+                    onPress={openMenu}
+                    style={{ width: 100, height: 50, justifyContent: 'center', paddingLeft: 12 }}>
+                    <Text style={{ fontSize: 16 }}>
+                      {countryCodes.find((c) => c.value === countryCode)?.label}
+                    </Text>
+                  </TouchableOpacity>
+                }>
+                {countryCodes.map((c, idx) => (
+                  <React.Fragment key={c.value}>
+                    <Menu.Item
+                      onPress={() => {
+                        setCountryCode(c.value);
+                        closeMenu();
+                      }}
+                      title={c.label}
+                    />
+                    {idx < countryCodes.length - 1 && <Divider />}
+                  </React.Fragment>
+                ))}
+              </Menu>
+
+              <TextInput
+                placeholder="Phone Number"
+                placeholderTextColor="#aaa"
+                keyboardType="phone-pad"
+                value={phone}
+                onChangeText={setPhone}
+                style={{
+                  flex: 1,
+                  paddingVertical: 12,
+                  paddingHorizontal: 16,
+                }}
+              />
+            </View>
           </View>
           {errors.phone ? (
             <Text style={{ color: colors.error, fontSize: 13 }}>{errors.phone}</Text>
