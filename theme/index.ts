@@ -5,6 +5,8 @@ const customColors = {
   background: '#2D1B69',
   text: '#ffffff',
   error: '#EF4444',
+  funkyPink: '#FF6F91',
+  deepPurple: '#2D1B69',
 };
 
 export const AppTheme = {

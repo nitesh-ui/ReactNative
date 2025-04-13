@@ -5,6 +5,7 @@ import Login from '../screens/Login';
 import Register from '../screens/Register';
 import ForgotPassword from '../screens/ForgotPassword';
 import VerificationCodeScreen from 'screens/VerificationCodeScreen';
+import ResetPasswordScreen from 'screens/ResetPasswordScreen';
 
 export type RootStackParamList = {
   Login: undefined;
@@ -25,6 +26,7 @@ export default function AppNavigator() {
       <Stack.Screen name="Register" component={Register} />
       <Stack.Screen name="ForgotPassword" component={ForgotPassword} />
       <Stack.Screen name="VerificationCode" component={VerificationCodeScreen} />
+      <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
     </Stack.Navigator>
   );
 }

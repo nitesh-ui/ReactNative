@@ -12,6 +12,9 @@ import {
 } from 'react-native';
 import { Button, useTheme } from 'react-native-paper';
 import { MotiView, AnimatePresence } from 'moti';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { RootStackParamList } from '../navigation/AppNavigator';
 
 export default function VerificationCodeScreen() {
   const { colors } = useTheme();
@@ -20,6 +23,8 @@ export default function VerificationCodeScreen() {
   const [error, setError] = useState(false);
   const [timer, setTimer] = useState(30);
   const [shaking, setShaking] = useState(false);
+
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
   // Countdown for resend
   useEffect(() => {
@@ -64,6 +69,7 @@ export default function VerificationCodeScreen() {
     } else {
       setError(false);
       console.log('✅ Code Verified!');
+      navigation.navigate('ResetPassword');
     }
   };
 
@@ -141,18 +147,28 @@ export default function VerificationCodeScreen() {
               animate={{ opacity: 1, translateY: 0 }}
               exit={{ opacity: 0 }}
               className="mb-2">
-              <Text className="text-center text-sm text-red-400">Invalid Code. Try Again.</Text>
+              <Text
+                className="text-center text-sm text-red-400"
+                style={{ textAlign: 'center', fontSize: 14, color: colors.error }}>
+                Invalid Code. Try Again.
+              </Text>
             </MotiView>
           )}
         </AnimatePresence>
 
         {/* Resend */}
-        <View className="mb-6 items-center">
+        <View className="mb-6 items-center" style={{ marginBottom: 24, alignItems: 'center' }}>
           {timer > 0 ? (
-            <Text className="text-white">Resend in 00:{timer.toString().padStart(2, '0')}</Text>
+            <Text className="text-white" style={{ color: colors.text }}>
+              Resend in 00:{timer.toString().padStart(2, '0')}
+            </Text>
           ) : (
             <TouchableOpacity onPress={resendCode}>
-              <Text className="font-semibold text-funkyPink">Resend Code</Text>
+              <Text
+                className="font-semibold text-funkyPink"
+                style={{ fontWeight: 600, color: colors.funkyPink }}>
+                Resend Code
+              </Text>
             </TouchableOpacity>
           )}
         </View>
@@ -161,8 +177,8 @@ export default function VerificationCodeScreen() {
         <Button
           mode="contained"
           onPress={verifyCode}
-          className="rounded-xl bg-funkyPink"
-          labelStyle={{ fontWeight: 'bold', color: '#000' }}>
+          style={{ borderRadius: 12, backgroundColor: colors.funkyPink }}
+          labelStyle={{ fontWeight: 'bold', color: '#000', fontSize: 20 }}>
           Verify
         </Button>
       </ScrollView>
