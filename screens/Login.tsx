@@ -17,13 +17,16 @@ import type { RootStackParamList } from '../navigation/AppNavigator';
 
 export default function Login() {
   const { colors } = useTheme();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState({ username: '', password: '' });
 
-  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const [shakeUsername, setShakeUsername] = useState(false);
+  const [shakePassword, setShakePassword] = useState(false);
 
   const validateAndSubmit = () => {
     const newErrors = { username: '', password: '' };
@@ -31,21 +34,30 @@ export default function Login() {
 
     if (!username.trim()) {
       newErrors.username = 'Username is required';
+      setShakeUsername(true);
       valid = false;
     } else if (username.length < 3) {
       newErrors.username = 'Must be at least 3 characters';
+      setShakeUsername(true);
       valid = false;
     }
 
     if (!password) {
       newErrors.password = 'Password is required';
+      setShakePassword(true);
       valid = false;
     } else if (password.length < 6) {
       newErrors.password = 'Must be at least 6 characters';
+      setShakePassword(true);
       valid = false;
     }
 
     setErrors(newErrors);
+
+    setTimeout(() => {
+      setShakeUsername(false);
+      setShakePassword(false);
+    }, 500);
 
     if (valid) {
       console.log('✅ Logged in:', { username, password, rememberMe });
@@ -68,52 +80,79 @@ export default function Login() {
             </Text>
           </MotiView>
 
-          <TextInput
-            placeholder="Username"
-            placeholderTextColor="#aaa"
-            value={username}
-            onChangeText={setUsername}
-            style={{
-              backgroundColor: 'white',
-              borderRadius: 12,
-              paddingVertical: 12,
-              paddingHorizontal: 16,
-              marginBottom: 4,
-            }}
-          />
+          {/* Username Input with Shake */}
+          <MotiView
+            from={{ translateX: 0 }}
+            animate={{ translateX: shakeUsername ? -10 : 0 }}
+            transition={{
+              type: 'timing',
+              duration: 100,
+              repeat: shakeUsername ? 3 : 0,
+              repeatReverse: true,
+            }}>
+            <TextInput
+              placeholder="Username"
+              placeholderTextColor="#aaa"
+              value={username}
+              onChangeText={setUsername}
+              style={{
+                backgroundColor: 'white',
+                borderRadius: 12,
+                paddingVertical: 12,
+                paddingHorizontal: 16,
+                marginBottom: 4,
+                borderWidth: errors.username ? 1.5 : 0,
+                borderColor: errors.username ? colors.error : 'transparent',
+              }}
+            />
+          </MotiView>
           {errors.username ? (
             <Text style={{ color: colors.error, fontSize: 13, marginBottom: 4 }}>
               {errors.username}
             </Text>
           ) : null}
 
-          <View style={{ position: 'relative', marginTop: 16 }}>
-            <TextInput
-              placeholder="Password"
-              placeholderTextColor="#aaa"
-              secureTextEntry={!showPassword}
-              value={password}
-              onChangeText={setPassword}
-              style={{
-                backgroundColor: 'white',
-                borderRadius: 12,
-                paddingVertical: 12,
-                paddingHorizontal: 16,
-                paddingRight: 45,
-              }}
-            />
-            <TouchableOpacity
-              onPress={() => setShowPassword(!showPassword)}
-              style={{ position: 'absolute', right: 16, top: '30%' }}>
-              <Feather name={showPassword ? 'eye-off' : 'eye'} size={20} color="#444" />
-            </TouchableOpacity>
-          </View>
+          {/* Password Input with Shake */}
+          <MotiView
+            from={{ translateX: 0 }}
+            animate={{ translateX: shakePassword ? -10 : 0 }}
+            transition={{
+              type: 'timing',
+              duration: 100,
+              repeat: shakePassword ? 3 : 0,
+              repeatReverse: true,
+            }}>
+            <View style={{ position: 'relative', marginTop: 16 }}>
+              <TextInput
+                placeholder="Password"
+                placeholderTextColor="#aaa"
+                secureTextEntry={!showPassword}
+                value={password}
+                onChangeText={setPassword}
+                style={{
+                  backgroundColor: 'white',
+                  borderRadius: 12,
+                  paddingVertical: 12,
+                  paddingHorizontal: 16,
+                  paddingRight: 45,
+                  borderWidth: errors.password ? 1.5 : 0,
+                  borderColor: errors.password ? colors.error : 'transparent',
+                }}
+              />
+              <TouchableOpacity
+                onPress={() => setShowPassword(!showPassword)}
+                style={{ position: 'absolute', right: 16, top: '30%' }}>
+                <Feather name={showPassword ? 'eye-off' : 'eye'} size={20} color="#444" />
+              </TouchableOpacity>
+            </View>
+          </MotiView>
           {errors.password ? (
             <Text style={{ color: colors.error, fontSize: 13, marginTop: 4 }}>
               {errors.password}
             </Text>
           ) : null}
 
+          {/* Remember Me + Forgot */}
           <View
             style={{
               flexDirection: 'row',

@@ -37,6 +37,13 @@ export default function Register() {
     confirmPassword: '',
   });
 
+  const [shake, setShake] = useState({
+    email: false,
+    phone: false,
+    password: false,
+    confirmPassword: false,
+  });
+
   const [menuVisible, setMenuVisible] = useState(false);
   const openMenu = () => setMenuVisible(true);
   const closeMenu = () => setMenuVisible(false);
@@ -44,25 +51,39 @@ export default function Register() {
   const validateAndSubmit = () => {
     const newErrors = { email: '', phone: '', password: '', confirmPassword: '' };
     let valid = true;
+    const newShake = { email: false, phone: false, password: false, confirmPassword: false };
 
     if (!email.includes('@')) {
       newErrors.email = 'Invalid email';
+      newShake.email = true;
       valid = false;
     }
+
     if (!phone || phone.length < 7) {
       newErrors.phone = 'Invalid phone number';
+      newShake.phone = true;
       valid = false;
     }
+
     if (!password || password.length < 6) {
       newErrors.password = 'Password must be at least 6 characters';
+      newShake.password = true;
       valid = false;
     }
+
     if (password !== confirmPassword) {
       newErrors.confirmPassword = 'Passwords do not match';
+      newShake.confirmPassword = true;
       valid = false;
     }
 
     setErrors(newErrors);
+    setShake(newShake);
+
+    setTimeout(() => {
+      setShake({ email: false, phone: false, password: false, confirmPassword: false });
+    }, 500);
+
     if (valid) {
       console.log('🎉 Registered:', { email, phone: `${countryCode} ${phone}`, password });
     }
@@ -91,31 +112,44 @@ export default function Register() {
         </MotiView>
 
         <View style={{ gap: 16 }}>
-          {/* Email */}
-          <TextInput
-            placeholder="Email"
-            placeholderTextColor="#aaa"
-            value={email}
-            onChangeText={setEmail}
-            style={{
-              backgroundColor: 'white',
-              borderRadius: 12,
-              paddingVertical: 12,
-              paddingHorizontal: 16,
-            }}
-          />
+          {/* Email with shake */}
+          <MotiView
+            from={{ translateX: 0 }}
+            animate={{ translateX: shake.email ? -10 : 0 }}
+            transition={{
+              type: 'timing',
+              duration: 100,
+              repeat: shake.email ? 3 : 0,
+              repeatReverse: true,
+            }}>
+            <TextInput
+              placeholder="Email"
+              placeholderTextColor="#aaa"
+              value={email}
+              onChangeText={setEmail}
+              style={{
+                backgroundColor: 'white',
+                borderRadius: 12,
+                paddingVertical: 12,
+                paddingHorizontal: 16,
+                borderWidth: errors.email ? 1.5 : 0,
+                borderColor: errors.email ? colors.error : 'transparent',
+              }}
+            />
+          </MotiView>
           {errors.email ? (
             <Text style={{ color: colors.error, fontSize: 13 }}>{errors.email}</Text>
           ) : null}
 
-          {/* Phone Number */}
-          <View
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              backgroundColor: 'white',
-              borderRadius: 12,
-              overflow: 'hidden',
+          {/* Phone with shake */}
+          <MotiView
+            from={{ translateX: 0 }}
+            animate={{ translateX: shake.phone ? -10 : 0 }}
+            transition={{
+              type: 'timing',
+              duration: 100,
+              repeat: shake.phone ? 3 : 0,
+              repeatReverse: true,
             }}>
             <View
               style={{
@@ -124,6 +158,8 @@ export default function Register() {
                 backgroundColor: 'white',
                 borderRadius: 12,
                 overflow: 'hidden',
+                borderWidth: errors.phone ? 1.5 : 0,
+                borderColor: errors.phone ? colors.error : 'transparent',
               }}>
               <Menu
                 visible={menuVisible}
@@ -164,51 +200,75 @@ export default function Register() {
                 }}
               />
             </View>
-          </View>
+          </MotiView>
           {errors.phone ? (
             <Text style={{ color: colors.error, fontSize: 13 }}>{errors.phone}</Text>
           ) : null}
 
-          {/* Password */}
-          <View style={{ position: 'relative' }}>
+          {/* Password with shake */}
+          <MotiView
+            from={{ translateX: 0 }}
+            animate={{ translateX: shake.password ? -10 : 0 }}
+            transition={{
+              type: 'timing',
+              duration: 100,
+              repeat: shake.password ? 3 : 0,
+              repeatReverse: true,
+            }}>
+            <View style={{ position: 'relative' }}>
+              <TextInput
+                placeholder="Password"
+                placeholderTextColor="#aaa"
+                secureTextEntry={!showPassword}
+                value={password}
+                onChangeText={setPassword}
+                style={{
+                  backgroundColor: 'white',
+                  borderRadius: 12,
+                  paddingVertical: 12,
+                  paddingHorizontal: 16,
+                  paddingRight: 45,
+                  borderWidth: errors.password ? 1.5 : 0,
+                  borderColor: errors.password ? colors.error : 'transparent',
+                }}
+              />
+              <TouchableOpacity
+                onPress={() => setShowPassword(!showPassword)}
+                style={{ position: 'absolute', right: 16, top: '30%' }}>
+                <Feather name={showPassword ? 'eye-off' : 'eye'} size={20} color="#444" />
+              </TouchableOpacity>
+            </View>
+          </MotiView>
+          {errors.password ? (
+            <Text style={{ color: colors.error, fontSize: 13 }}>{errors.password}</Text>
+          ) : null}
+
+          {/* Confirm Password with shake */}
+          <MotiView
+            from={{ translateX: 0 }}
+            animate={{ translateX: shake.confirmPassword ? -10 : 0 }}
+            transition={{
+              type: 'timing',
+              duration: 100,
+              repeat: shake.confirmPassword ? 3 : 0,
+              repeatReverse: true,
+            }}>
             <TextInput
-              placeholder="Password"
+              placeholder="Confirm Password"
               placeholderTextColor="#aaa"
               secureTextEntry={!showPassword}
-              value={password}
-              onChangeText={setPassword}
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
               style={{
                 backgroundColor: 'white',
                 borderRadius: 12,
                 paddingVertical: 12,
                 paddingHorizontal: 16,
-                paddingRight: 45,
+                borderWidth: errors.confirmPassword ? 1.5 : 0,
+                borderColor: errors.confirmPassword ? colors.error : 'transparent',
               }}
             />
-            <TouchableOpacity
-              onPress={() => setShowPassword(!showPassword)}
-              style={{ position: 'absolute', right: 16, top: '30%' }}>
-              <Feather name={showPassword ? 'eye-off' : 'eye'} size={20} color="#444" />
-            </TouchableOpacity>
-          </View>
-          {errors.password ? (
-            <Text style={{ color: colors.error, fontSize: 13 }}>{errors.password}</Text>
-          ) : null}
-
-          {/* Confirm Password */}
-          <TextInput
-            placeholder="Confirm Password"
-            placeholderTextColor="#aaa"
-            secureTextEntry={!showPassword}
-            value={confirmPassword}
-            onChangeText={setConfirmPassword}
-            style={{
-              backgroundColor: 'white',
-              borderRadius: 12,
-              paddingVertical: 12,
-              paddingHorizontal: 16,
-            }}
-          />
+          </MotiView>
           {errors.confirmPassword ? (
             <Text style={{ color: colors.error, fontSize: 13 }}>{errors.confirmPassword}</Text>
           ) : null}
