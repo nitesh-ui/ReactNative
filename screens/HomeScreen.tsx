@@ -318,8 +318,6 @@ export default function HomeScreen() {
           </View>
 
           {/* Bottom Buttons */}
-          {/* Bottom Buttons */}
-          {/* Bottom Buttons */}
           <View
             style={{
               flexDirection: 'row',
