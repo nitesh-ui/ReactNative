@@ -116,7 +116,15 @@ export default function HomeScreen() {
                   }}>
                   <Image
                     source={require('../assets/head.png')}
-                    style={{ width: '100%', height: '100%', borderRadius: 140 }}
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      borderRadius: 140,
+                      shadowColor: '#FFD700',
+                      shadowOpacity: 0.5,
+                      shadowRadius: 20,
+                      shadowOffset: { width: 0, height: 0 },
+                    }}
                     resizeMode="contain"
                   />
                 </MotiView>
@@ -137,7 +145,15 @@ export default function HomeScreen() {
                   }}>
                   <Image
                     source={require('../assets/tail.png')}
-                    style={{ width: '100%', height: '100%', borderRadius: 140 }}
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      borderRadius: 140,
+                      shadowColor: '#FFD700',
+                      shadowOpacity: 0.5,
+                      shadowRadius: 20,
+                      shadowOffset: { width: 0, height: 0 },
+                    }}
                     resizeMode="contain"
                   />
                 </MotiView>
