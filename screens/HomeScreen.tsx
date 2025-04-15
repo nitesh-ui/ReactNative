@@ -12,6 +12,9 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button, useTheme } from 'react-native-paper';
 import { MotiView } from 'moti';
+import ConfettiCannon from 'react-native-confetti-cannon';
+import { Audio } from 'expo-av';
+import * as Haptics from 'expo-haptics';
 
 const countryFlags = [
   { code: 'IN', symbol: '₹', value: 30, flag: require('../assets/in.png') },
@@ -30,11 +33,36 @@ export default function HomeScreen() {
   const [amount, setAmount] = useState(selectedCountry.value.toString());
   const [rotation, setRotation] = useState(0);
   const [balance, setBalance] = useState(100);
+  const [showConfetti, setShowConfetti] = useState(false);
+  const [sound, setSound] = useState<Audio.Sound | null>(null);
+
+  const screenWidth = Dimensions.get('window').width;
+  const buttonGap = 12;
+  const totalGaps = 2 * buttonGap; // Two gaps between three buttons
+  const buttonWidth = (screenWidth - 32 - totalGaps) / 3; // 16px horizontal padding on both sides
+
+  async function playSound() {
+    const { sound } = await Audio.Sound.createAsync(require('../assets/sounds/coin-flip.mp3'));
+    setSound(sound);
+    await sound.playAsync();
+  }
+
+  React.useEffect(() => {
+    return sound
+      ? () => {
+          sound.unloadAsync();
+        }
+      : undefined;
+  }, [sound]);
 
   const handleFlip = () => {
     const amt = parseFloat(amount);
     if (amt < 15) return alert('Minimum bet is $15');
     if (amt > balance) return alert('Insufficient Balance');
+
+    // Trigger vibration & sound
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    playSound();
 
     const newFace = Math.random() > 0.5 ? 'HEAD' : 'TAIL';
     setFlipping(true);
@@ -44,6 +72,11 @@ export default function HomeScreen() {
       setFlipping(false);
       const won = selectedFace === newFace;
       setBalance((prev) => prev + (won ? amt : -amt));
+
+      if (won) {
+        setShowConfetti(true);
+        setTimeout(() => setShowConfetti(false), 3000);
+      }
     }, 1000);
   };
 
@@ -273,18 +306,28 @@ export default function HomeScreen() {
                 labelStyle={{ fontWeight: 'bold', color: '#000' }}>
                 FLIP
               </Button>
+              {showConfetti && (
+                <ConfettiCannon
+                  count={100}
+                  origin={{ x: Dimensions.get('window').width / 2, y: 0 }}
+                  fadeOut={true}
+                  fallSpeed={3000}
+                />
+              )}
             </View>
           </View>
 
           {/* Bottom Buttons */}
+          {/* Bottom Buttons */}
+          {/* Bottom Buttons */}
           <View
             style={{
               flexDirection: 'row',
-              flexWrap: 'wrap',
               justifyContent: 'space-between',
+              alignItems: 'center',
               width: '100%',
-              gap: 12,
               marginTop: 12,
+              gap: 8,
             }}>
             {['DEPOSIT', 'WITHDRAWAL', 'MY ACCOUNT'].map((label) => (
               <Button
@@ -292,13 +335,29 @@ export default function HomeScreen() {
                 mode="outlined"
                 style={{
                   flex: 1,
-                  minWidth: 100,
+                  height: 48,
                   borderRadius: 14,
                   borderColor: '#FF6F91',
                   backgroundColor: '#ffffff10',
+                  justifyContent: 'center',
                 }}
-                labelStyle={{ color: '#FF6F91', fontWeight: '600' }}>
-                {label}
+                contentStyle={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  height: '100%',
+                  paddingHorizontal: 4,
+                }}>
+                <Text
+                  numberOfLines={1}
+                  style={{
+                    color: '#FF6F91',
+                    fontWeight: '600',
+                    fontSize: 13,
+                    textAlign: 'center',
+                  }}>
+                  {label}
+                </Text>
               </Button>
             ))}
           </View>
