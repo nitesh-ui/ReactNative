@@ -61,6 +61,7 @@ export default function Login() {
 
     if (valid) {
       console.log('✅ Logged in:', { username, password, rememberMe });
+      navigation.navigate('HomeScreen');
     }
   };
 
