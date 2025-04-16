@@ -9,6 +9,7 @@ import ResetPasswordScreen from 'screens/ResetPasswordScreen';
 import HomeScreen from 'screens/HomeScreen';
 import DepositScreen from 'screens/DepositScreen';
 import WithdrawalScreen from 'screens/WithdrawlScreen';
+import MyAccountScreen from 'screens/MyAccountScreen';
 
 export type RootStackParamList = {
   Login: undefined;
@@ -33,6 +34,7 @@ export default function AppNavigator() {
       <Stack.Screen name="HomeScreen" component={HomeScreen} />
       <Stack.Screen name="DepositScreen" component={DepositScreen} />
       <Stack.Screen name="WithdrawlScreen" component={WithdrawalScreen} />
+      <Stack.Screen name="MyAccount" component={MyAccountScreen} />
     </Stack.Navigator>
   );
 }

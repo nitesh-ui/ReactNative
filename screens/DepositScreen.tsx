@@ -3,6 +3,7 @@ import { View, Text, Image, Platform, TouchableOpacity, KeyboardAvoidingView } f
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { Button, useTheme } from 'react-native-paper';
+import UserDropdown from 'components/UserDropdown';
 
 export default function DepositScreen() {
   const { colors } = useTheme();
@@ -26,9 +27,14 @@ export default function DepositScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={{ flex: 1 }}>
         <View style={{ padding: 16 }}>
-          {/* Username */}
-          <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 16 }}>
-            <Text style={{ color: colors.text, fontWeight: '600', fontSize: 16 }}>👤 USER9801</Text>
+          <View
+            style={{
+              flexDirection: 'row',
+              justifyContent: 'flex-end',
+              paddingTop: 8,
+              paddingBottom: 16,
+            }}>
+            <UserDropdown username="USER9081" />
           </View>
 
           {/* QR Code */}
