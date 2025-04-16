@@ -408,7 +408,7 @@ export default function HomeScreen() {
                   fontSize: 13,
                   textAlign: 'center',
                 }}>
-                WITHDRAWL
+                WITHDRAW
               </Text>
             </Button>
           </View>
