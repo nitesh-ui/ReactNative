@@ -15,6 +15,10 @@ import { MotiView } from 'moti';
 import ConfettiCannon from 'react-native-confetti-cannon';
 import { Audio } from 'expo-av';
 import * as Haptics from 'expo-haptics';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { RootStackParamList } from '../navigation/AppNavigator';
+import UserDropdown from 'components/UserDropdown';
 
 const countryFlags = [
   { code: 'IN', symbol: '₹', value: 30, flag: require('../assets/in.png') },
@@ -35,6 +39,8 @@ export default function HomeScreen() {
   const [balance, setBalance] = useState(100);
   const [showConfetti, setShowConfetti] = useState(false);
   const [sound, setSound] = useState<Audio.Sound | null>(null);
+
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
   const screenWidth = Dimensions.get('window').width;
   const buttonGap = 12;
@@ -105,17 +111,20 @@ export default function HomeScreen() {
               width: '100%',
               flexDirection: 'row',
               justifyContent: 'space-between',
+              alignItems: 'center',
               paddingHorizontal: 8,
             }}>
-            <View style={{ backgroundColor: '#ffffff22', padding: 8, borderRadius: 8 }}>
-              <Text style={{ color: 'white' }}>👤 USER9801</Text>
-            </View>
             <View style={{ backgroundColor: '#ffffff22', padding: 8, borderRadius: 8 }}>
               <Text style={{ color: 'white' }}>
                 BALANCE: {selectedCountry.symbol}
                 {balance.toFixed(2)}
               </Text>
             </View>
+            {/* 
+            <View style={{ backgroundColor: '#ffffff22', padding: 8, borderRadius: 8 }}>
+              <Text style={{ color: 'white' }}>👤 USER9801</Text>
+            </View> */}
+            <UserDropdown username="USER9081" />
           </View>
 
           {/* Middle Content */}
@@ -127,7 +136,7 @@ export default function HomeScreen() {
                 color: colors.text,
                 marginBottom: 12,
               }}>
-              🪙 FLIP A COIN
+              🪙 FLIP To Win
             </Text>
 
             {/* Coin */}
@@ -137,7 +146,7 @@ export default function HomeScreen() {
                   from={{ rotateX: '0deg', translateY: 0 }}
                   animate={{
                     rotateX: flipResult === 'HEAD' ? `${rotation}deg` : `${rotation + 180}deg`,
-                    translateY: flipping ? -40 : 0,
+                    translateY: flipping ? -80 : 0,
                   }}
                   transition={{ type: 'timing', duration: 1000 }}
                   style={{
@@ -307,12 +316,24 @@ export default function HomeScreen() {
                 FLIP
               </Button>
               {showConfetti && (
-                <ConfettiCannon
-                  count={100}
-                  origin={{ x: Dimensions.get('window').width / 2, y: 0 }}
-                  fadeOut={true}
-                  fallSpeed={3000}
-                />
+                <View
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    zIndex: 9999,
+                    pointerEvents: 'none',
+                  }}>
+                  <ConfettiCannon
+                    count={300}
+                    origin={{ x: Dimensions.get('window').width / 2, y: 0 }}
+                    explosionSpeed={500}
+                    fallSpeed={2500}
+                    fadeOut={true}
+                  />
+                </View>
               )}
             </View>
           </View>
@@ -327,37 +348,69 @@ export default function HomeScreen() {
               marginTop: 12,
               gap: 8,
             }}>
-            {['DEPOSIT', 'WITHDRAWAL', 'MY ACCOUNT'].map((label) => (
-              <Button
-                key={label}
-                mode="outlined"
+            {/*DEPOSIT Button */}
+
+            <Button
+              mode="outlined"
+              style={{
+                flex: 1,
+                height: 48,
+                borderRadius: 14,
+                borderColor: '#FF6F91',
+                backgroundColor: '#ffffff10',
+                justifyContent: 'center',
+              }}
+              contentStyle={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                height: '100%',
+                paddingHorizontal: 4,
+              }}
+              onPress={() => navigation.navigate('DepositScreen')}>
+              <Text
+                numberOfLines={1}
                 style={{
-                  flex: 1,
-                  height: 48,
-                  borderRadius: 14,
-                  borderColor: '#FF6F91',
-                  backgroundColor: '#ffffff10',
-                  justifyContent: 'center',
-                }}
-                contentStyle={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  height: '100%',
-                  paddingHorizontal: 4,
+                  color: '#FF6F91',
+                  fontWeight: '600',
+                  fontSize: 13,
+                  textAlign: 'center',
                 }}>
-                <Text
-                  numberOfLines={1}
-                  style={{
-                    color: '#FF6F91',
-                    fontWeight: '600',
-                    fontSize: 13,
-                    textAlign: 'center',
-                  }}>
-                  {label}
-                </Text>
-              </Button>
-            ))}
+                DEPOSIT
+              </Text>
+            </Button>
+
+            {/* WITHDRAWL Button */}
+
+            <Button
+              mode="outlined"
+              style={{
+                flex: 1,
+                height: 48,
+                borderRadius: 14,
+                borderColor: '#FF6F91',
+                backgroundColor: '#ffffff10',
+                justifyContent: 'center',
+              }}
+              contentStyle={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                height: '100%',
+                paddingHorizontal: 4,
+              }}
+              onPress={() => navigation.navigate('WithdrawlScreen')}>
+              <Text
+                numberOfLines={1}
+                style={{
+                  color: '#FF6F91',
+                  fontWeight: '600',
+                  fontSize: 13,
+                  textAlign: 'center',
+                }}>
+                WITHDRAWL
+              </Text>
+            </Button>
           </View>
         </View>
       </KeyboardAvoidingView>
