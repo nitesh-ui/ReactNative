@@ -1,14 +1,6 @@
 import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  KeyboardAvoidingView,
-  Platform,
-  Dimensions,
-  ScrollView,
-} from 'react-native';
-import { Button, useTheme, Menu } from 'react-native-paper';
+import { View, Text, TextInput, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { Button, useTheme } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MotiView } from 'moti';
 import { useNavigation } from '@react-navigation/native';
@@ -18,10 +10,9 @@ import type { RootStackParamList } from '../navigation/AppNavigator';
 import AnimatedSnackbar from 'components/AnimatedSnackbar';
 import UserDropdown from 'components/UserDropdown';
 
-const screenWidth = Dimensions.get('window').width;
-
 export default function WithdrawalScreen() {
   const { colors } = useTheme();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
   const [fields, setFields] = useState({
     name: '',
@@ -29,16 +20,15 @@ export default function WithdrawalScreen() {
     ifsc: '',
     account: '',
     confirmAccount: '',
+    amount: '',
+    upi: '',
   });
 
   const [errors, setErrors] = useState({});
   const [shake, setShake] = useState({});
   const [loading, setLoading] = useState(false);
-  const [menuVisible, setMenuVisible] = useState(false);
+  const [successAnim, setSuccessAnim] = useState(false);
 
-  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-
-  // Snackbar state
   const [snackbarVisible, setSnackbarVisible] = useState(false);
   const [snackbarMsg, setSnackbarMsg] = useState('');
   const [snackbarColor, setSnackbarColor] = useState('green');
@@ -50,9 +40,6 @@ export default function WithdrawalScreen() {
     setShake((prev) => ({ ...prev, [field]: false }));
   };
 
-  const openMenu = () => setMenuVisible(true);
-  const closeMenu = () => setMenuVisible(false);
-
   const validate = () => {
     const newErrors = {};
     const newShake = {};
@@ -63,6 +50,7 @@ export default function WithdrawalScreen() {
     if (!fields.account) newErrors.account = 'Account number required';
     if (fields.confirmAccount !== fields.account)
       newErrors.confirmAccount = 'Account numbers do not match';
+    if (!fields.amount || isNaN(fields.amount)) newErrors.amount = 'Enter valid amount';
 
     Object.keys(newErrors).forEach((key) => (newShake[key] = true));
 
@@ -82,6 +70,7 @@ export default function WithdrawalScreen() {
         setSnackbarColor('#4CAF50');
         setSnackbarType('success');
         setSnackbarVisible(true);
+        setSuccessAnim(true);
 
         setFields({
           name: '',
@@ -89,7 +78,11 @@ export default function WithdrawalScreen() {
           ifsc: '',
           account: '',
           confirmAccount: '',
+          amount: '',
+          upi: '',
         });
+
+        setTimeout(() => setSuccessAnim(false), 2000);
       } catch (error) {
         setSnackbarMsg('Failed to submit withdrawal. Please try again.');
         setSnackbarColor('#f44336');
@@ -98,12 +91,22 @@ export default function WithdrawalScreen() {
       } finally {
         setLoading(false);
       }
-    }
 
-    setTimeout(() => {
-      setSnackbarVisible(false);
-    }, 3000);
+      setTimeout(() => {
+        setSnackbarVisible(false);
+      }, 3000);
+    }
   };
+
+  const fieldConfig = [
+    { key: 'name', placeholder: 'Name' },
+    { key: 'bank', placeholder: 'Bank Name' },
+    { key: 'ifsc', placeholder: 'IFSC Code' },
+    { key: 'account', placeholder: 'Account Number', keyboardType: 'numeric' },
+    { key: 'confirmAccount', placeholder: 'Confirm Account Number', keyboardType: 'numeric' },
+    { key: 'amount', placeholder: 'Withdrawal Amount', keyboardType: 'numeric' },
+    { key: 'upi', placeholder: 'UPI ID (Optional)' },
+  ];
 
   return (
     <SafeAreaView edges={['top', 'bottom']} style={{ flex: 1, backgroundColor: colors.background }}>
@@ -111,7 +114,7 @@ export default function WithdrawalScreen() {
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
-          {/* Top Bar with Username */}
+          {/* Top Bar */}
           <View
             style={{
               flexDirection: 'row',
@@ -138,24 +141,13 @@ export default function WithdrawalScreen() {
                 fontSize: 24,
                 fontWeight: 'bold',
                 color: colors.text,
-                marginTop: 12,
                 marginBottom: 24,
                 textAlign: 'center',
               }}>
               💸 Withdrawal
             </Text>
 
-            {[
-              { key: 'name', placeholder: 'Name' },
-              { key: 'bank', placeholder: 'Bank Name' },
-              { key: 'ifsc', placeholder: 'IFSC Code' },
-              { key: 'account', placeholder: 'Account Number', keyboardType: 'numeric' },
-              {
-                key: 'confirmAccount',
-                placeholder: 'Confirm Account Number',
-                keyboardType: 'numeric',
-              },
-            ].map(({ key, placeholder, keyboardType }) => (
+            {fieldConfig.map(({ key, placeholder, keyboardType }) => (
               <MotiView
                 key={key}
                 from={{ translateX: 0 }}
@@ -192,10 +184,31 @@ export default function WithdrawalScreen() {
               labelStyle={{ fontWeight: 'bold', color: '#000' }}>
               Submit Withdrawal
             </Button>
+
+            {successAnim && (
+              <MotiView
+                from={{ scale: 0, opacity: 0 }}
+                animate={{ scale: 1.4, opacity: 1 }}
+                exit={{ scale: 0.9, opacity: 0 }}
+                transition={{ type: 'timing', duration: 500 }}
+                style={{
+                  position: 'absolute',
+                  top: '40%',
+                  alignSelf: 'center',
+                  backgroundColor: '#4CAF50',
+                  borderRadius: 100,
+                  width: 80,
+                  height: 80,
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                }}>
+                <Text style={{ color: 'white', fontSize: 40 }}>✓</Text>
+              </MotiView>
+            )}
           </View>
         </ScrollView>
 
-        {/* Animated Snackbar */}
+        {/* Snackbar */}
         <AnimatedSnackbar
           visible={snackbarVisible}
           message={snackbarMsg}

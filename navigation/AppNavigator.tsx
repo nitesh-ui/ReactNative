@@ -10,6 +10,7 @@ import HomeScreen from 'screens/HomeScreen';
 import DepositScreen from 'screens/DepositScreen';
 import WithdrawalScreen from 'screens/WithdrawlScreen';
 import MyAccountScreen from 'screens/MyAccountScreen';
+import LandingScreen from 'screens/LandinScreen';
 
 export type RootStackParamList = {
   Login: undefined;
@@ -25,7 +26,7 @@ export default function AppNavigator() {
       screenOptions={{
         headerShown: false,
       }}
-      initialRouteName="Login">
+      initialRouteName="Landing">
       <Stack.Screen name="Login" component={Login} />
       <Stack.Screen name="Register" component={Register} />
       <Stack.Screen name="ForgotPassword" component={ForgotPassword} />
@@ -35,6 +36,7 @@ export default function AppNavigator() {
       <Stack.Screen name="DepositScreen" component={DepositScreen} />
       <Stack.Screen name="WithdrawlScreen" component={WithdrawalScreen} />
       <Stack.Screen name="MyAccount" component={MyAccountScreen} />
+      <Stack.Screen name="Landing" component={LandingScreen} />
     </Stack.Navigator>
   );
 }

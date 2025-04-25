@@ -14,31 +14,34 @@ import { MotiView } from 'moti';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/AppNavigator';
+import { login as loginAPI, test } from '../api/auth';
+import AnimatedSnackbar from 'components/AnimatedSnackbar';
 
 export default function Login() {
   const { colors } = useTheme();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [errors, setErrors] = useState({ username: '', password: '' });
+  const [errors, setErrors] = useState({ email: '', password: '' });
 
-  const [shakeUsername, setShakeUsername] = useState(false);
+  const [shakeEmail, setShakeEmail] = useState(false);
   const [shakePassword, setShakePassword] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  const validateAndSubmit = () => {
-    const newErrors = { username: '', password: '' };
+  const [snackbarVisible, setSnackbarVisible] = useState(false);
+  const [snackbarMsg, setSnackbarMsg] = useState('');
+  const [snackbarType, setSnackbarType] = useState<'success' | 'error'>('success');
+
+  const validateAndSubmit = async () => {
+    const newErrors = { email: '', password: '' };
     let valid = true;
 
-    if (!username.trim()) {
-      newErrors.username = 'Username is required';
-      setShakeUsername(true);
-      valid = false;
-    } else if (username.length < 3) {
-      newErrors.username = 'Must be at least 3 characters';
-      setShakeUsername(true);
+    if (!email.trim()) {
+      newErrors.email = 'Email is required';
+      setShakeEmail(true);
       valid = false;
     }
 
@@ -46,22 +49,39 @@ export default function Login() {
       newErrors.password = 'Password is required';
       setShakePassword(true);
       valid = false;
-    } else if (password.length < 6) {
-      newErrors.password = 'Must be at least 6 characters';
-      setShakePassword(true);
-      valid = false;
     }
 
     setErrors(newErrors);
 
     setTimeout(() => {
-      setShakeUsername(false);
+      setShakeEmail(false);
       setShakePassword(false);
     }, 500);
 
-    if (valid) {
-      console.log('✅ Logged in:', { username, password, rememberMe });
-      navigation.navigate('HomeScreen');
+    if (!valid) return;
+
+    try {
+      setLoading(true);
+      const response = await loginAPI(email, password);
+      console.log('✅ Login Success:', response);
+
+      // Show success snackbar
+      setSnackbarMsg('Logged in successfully!');
+      setSnackbarType('success');
+      setSnackbarVisible(true);
+
+      setTimeout(() => {
+        navigation.replace('HomeScreen');
+      }, 1000);
+    } catch (err) {
+      console.error('Login error:', err?.response?.data || err.message);
+      setSnackbarMsg(
+        err?.response?.data?.message || 'Login failed. Please check your credentials.'
+      );
+      setSnackbarType('error');
+      setSnackbarVisible(true);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -81,39 +101,39 @@ export default function Login() {
             </Text>
           </MotiView>
 
-          {/* Username Input with Shake */}
+          {/* Email */}
           <MotiView
             from={{ translateX: 0 }}
-            animate={{ translateX: shakeUsername ? -10 : 0 }}
+            animate={{ translateX: shakeEmail ? -10 : 0 }}
             transition={{
               type: 'timing',
               duration: 100,
-              repeat: shakeUsername ? 3 : 0,
+              repeat: shakeEmail ? 3 : 0,
               repeatReverse: true,
             }}>
             <TextInput
-              placeholder="Username"
+              placeholder="Email"
               placeholderTextColor="#aaa"
-              value={username}
-              onChangeText={setUsername}
+              value={email}
+              onChangeText={setEmail}
               style={{
                 backgroundColor: 'white',
                 borderRadius: 12,
                 paddingVertical: 12,
                 paddingHorizontal: 16,
                 marginBottom: 4,
-                borderWidth: errors.username ? 1.5 : 0,
-                borderColor: errors.username ? colors.error : 'transparent',
+                borderWidth: errors.email ? 1.5 : 0,
+                borderColor: errors.email ? colors.error : 'transparent',
               }}
             />
           </MotiView>
-          {errors.username ? (
+          {errors.email ? (
             <Text style={{ color: colors.error, fontSize: 13, marginBottom: 4 }}>
-              {errors.username}
+              {errors.email}
             </Text>
           ) : null}
 
-          {/* Password Input with Shake */}
+          {/* Password */}
           <MotiView
             from={{ translateX: 0 }}
             animate={{ translateX: shakePassword ? -10 : 0 }}
@@ -176,6 +196,8 @@ export default function Login() {
 
           <Button
             mode="contained"
+            loading={loading}
+            disabled={loading}
             onPress={validateAndSubmit}
             style={{ marginTop: 16, borderRadius: 12, backgroundColor: colors.primary }}
             labelStyle={{ fontWeight: 'bold', color: '#000' }}>
@@ -190,6 +212,13 @@ export default function Login() {
           </View>
         </View>
       </ScrollView>
+
+      <AnimatedSnackbar
+        visible={snackbarVisible}
+        type={snackbarType}
+        message={snackbarMsg}
+        onDismiss={() => setSnackbarVisible(false)}
+      />
     </KeyboardAvoidingView>
   );
 }

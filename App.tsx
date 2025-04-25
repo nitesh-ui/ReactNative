@@ -6,15 +6,18 @@ import { AppTheme } from './theme';
 import { NavigationContainer } from '@react-navigation/native';
 import AppNavigator from './navigation/AppNavigator';
 import Login from './screens/Login';
+import { BalanceProvider } from 'context/BalanceContext';
 
 export default function App() {
   return (
     <SafeAreaProvider>
-      <PaperProvider theme={AppTheme}>
-        <NavigationContainer>
-          <AppNavigator />
-        </NavigationContainer>
-      </PaperProvider>
+      <BalanceProvider>
+        <PaperProvider theme={AppTheme}>
+          <NavigationContainer>
+            <AppNavigator />
+          </NavigationContainer>
+        </PaperProvider>
+      </BalanceProvider>
     </SafeAreaProvider>
   );
 }

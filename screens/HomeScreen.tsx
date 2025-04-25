@@ -22,10 +22,9 @@ import UserDropdown from 'components/UserDropdown';
 
 const countryFlags = [
   { code: 'IN', symbol: '₹', value: 30, flag: require('../assets/in.png') },
-  { code: 'AU', symbol: '$', value: 30, flag: require('../assets/au.png') },
-  { code: 'CA', symbol: '$', value: 30, flag: require('../assets/ca.png') },
-  { code: 'PK', symbol: 'Rs', value: 5000, flag: require('../assets/pk.png') },
-  { code: 'SE', symbol: 'kr', value: 300, flag: require('../assets/se.png') },
+  { code: 'US', symbol: '$', value: 30, flag: require('../assets/us.png') },
+  { code: 'CH', symbol: '¥', value: 30, flag: require('../assets/cn.png') },
+  { code: 'JP', symbol: '¥', value: 30, flag: require('../assets/jp.png') },
 ];
 
 export default function HomeScreen() {
