@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
 import {
   View,
   Text,
@@ -19,6 +19,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/AppNavigator';
 import UserDropdown from 'components/UserDropdown';
+import { AuthContext } from 'context/AuthContext';
 
 const countryFlags = [
   { code: 'IN', symbol: '₹', value: 30, flag: require('../assets/in.png') },
@@ -40,6 +41,7 @@ export default function HomeScreen() {
   const [sound, setSound] = useState<Audio.Sound | null>(null);
 
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const { username, userId } = useContext(AuthContext);
 
   const screenWidth = Dimensions.get('window').width;
   const buttonGap = 12;
@@ -123,7 +125,7 @@ export default function HomeScreen() {
             <View style={{ backgroundColor: '#ffffff22', padding: 8, borderRadius: 8 }}>
               <Text style={{ color: 'white' }}>👤 USER9801</Text>
             </View> */}
-            <UserDropdown username="USER9081" />
+            <UserDropdown username={username ?? userId ?? ''} />
           </View>
 
           {/* Middle Content */}

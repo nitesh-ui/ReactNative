@@ -1,104 +1,168 @@
+// screens/MyAccountScreen.tsx
 import React from 'react';
-import { View, StyleSheet, ScrollView } from 'react-native';
-import { Card, Text, Button, useTheme } from 'react-native-paper';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import {
+  View,
+  StyleSheet,
+  SafeAreaView,
+  Text,
+  Image,
+  TouchableOpacity,
+  ScrollView,
+  Dimensions,
+} from 'react-native';
+import { useTheme, Button } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/AppNavigator';
+import { Feather } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-const MyAccountScreen = () => {
+const { width } = Dimensions.get('window');
+
+export default function MyAccountScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const insets = useSafeAreaInsets();
   const { colors } = useTheme();
 
   const userInfo = {
-    username: 'USER9081',
-    email: 'user9081@example.com',
-    phone: '+91 9876543210',
-    balance: '₹100.00',
+    fullName: 'Devon Lane',
+    email: 'devon@gmail.com',
+    referCode: 'No refer',
+    avatar: require('../assets/profile.png'),
   };
 
   return (
-    <SafeAreaView edges={['top', 'bottom']} style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        <Text style={styles.header}>👤 My Account</Text>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      {/* header */}
+      <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
+        <TouchableOpacity onPress={() => navigation.goBack()}>
+          <Feather name="arrow-left" size={24} color="#fff" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>My Profile</Text>
+      </View>
 
-        <Card style={styles.card}>
-          <Card.Content>
-            <Text style={styles.label}>Username</Text>
-            <Text style={styles.value}>{userInfo.username}</Text>
-          </Card.Content>
-        </Card>
+      <ScrollView contentContainerStyle={styles.content}>
+        {/* avatar + name */}
+        <View style={styles.profileRow}>
+          <Image source={userInfo.avatar} style={styles.avatar} />
+          <View style={styles.nameEmail}>
+            <Text style={styles.name}>{userInfo.fullName}</Text>
+            <Text style={styles.email}>{userInfo.email}</Text>
+          </View>
+        </View>
 
-        <Card style={styles.card}>
-          <Card.Content>
-            <Text style={styles.label}>Email</Text>
-            <Text style={styles.value}>{userInfo.email}</Text>
-          </Card.Content>
-        </Card>
+        {/* user information */}
+        <Text style={styles.sectionTitle}>User Information</Text>
 
-        <Card style={styles.card}>
-          <Card.Content>
-            <Text style={styles.label}>Phone Number</Text>
-            <Text style={styles.value}>{userInfo.phone}</Text>
-          </Card.Content>
-        </Card>
+        <View style={styles.field}>
+          <Text style={styles.fieldLabel}>Full Name</Text>
+          <Text style={styles.fieldValue}>{userInfo.fullName}</Text>
+        </View>
 
-        <Card style={styles.card}>
-          <Card.Content>
-            <Text style={styles.label}>Wallet Balance</Text>
-            <Text style={styles.value}>{userInfo.balance}</Text>
-          </Card.Content>
-        </Card>
+        <View style={styles.field}>
+          <Text style={styles.fieldLabel}>Email</Text>
+          <Text style={styles.fieldValue}>{userInfo.email}</Text>
+        </View>
+
+        <View style={styles.field}>
+          <Text style={styles.fieldLabel}>Refer Code (Optional)</Text>
+          <Text style={styles.fieldValue}>{userInfo.referCode}</Text>
+        </View>
       </ScrollView>
 
+      {/* logout button */}
       <Button
         mode="contained"
-        onPress={() => navigation.navigate('Login')}
-        style={styles.logoutBtn}
-        labelStyle={{ color: '#000', fontWeight: 'bold' }}>
+        onPress={() => {
+          /* your logout logic */
+          navigation.replace('Login');
+        }}
+        style={[styles.logoutBtn, { backgroundColor: colors.primary }]}
+        labelStyle={styles.logoutLabel}>
         Logout
       </Button>
     </SafeAreaView>
   );
-};
-
-export default MyAccountScreen;
+}
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1E0A52',
-    paddingHorizontal: 16,
-  },
-  scrollContent: {
-    paddingVertical: 24,
   },
   header: {
-    color: 'white',
-    fontSize: 24,
-    fontWeight: '700',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingBottom: 8,
+    backgroundColor: 'transparent',
+  },
+  headerTitle: {
+    flex: 1,
     textAlign: 'center',
-    marginBottom: 24,
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#fff',
+    marginRight: 24,
   },
-  card: {
-    backgroundColor: '#ffffff10',
+  content: {
+    paddingHorizontal: 16,
+    paddingTop: 24,
+    paddingBottom: 16,
+  },
+  profileRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 32,
+  },
+  avatar: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    borderWidth: 2,
+    borderColor: '#5B3DFD',
+  },
+  nameEmail: {
+    marginLeft: 16,
+  },
+  name: {
+    color: '#fff',
+    fontSize: 22,
+    fontWeight: '600',
+  },
+  email: {
+    color: '#BBBBBB',
+    fontSize: 14,
+    marginTop: 4,
+  },
+  sectionTitle: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '700',
     marginBottom: 16,
-    borderRadius: 12,
   },
-  label: {
+  field: {
+    marginBottom: 20,
+  },
+  fieldLabel: {
     color: '#BBBBBB',
     fontSize: 13,
     marginBottom: 4,
   },
-  value: {
+  fieldValue: {
     color: '#fff',
     fontSize: 16,
     fontWeight: '500',
   },
   logoutBtn: {
-    backgroundColor: '#FF6F91',
-    marginBottom: 20,
-    borderRadius: 16,
     marginHorizontal: 16,
+    marginBottom: 24,
+    borderRadius: 24,
+    height: 48,
+    justifyContent: 'center',
+  },
+  logoutLabel: {
+    color: '#000',
+    fontSize: 16,
+    fontWeight: '700',
   },
 });

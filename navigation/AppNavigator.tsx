@@ -19,14 +19,18 @@ export type RootStackParamList = {
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
+interface Props {
+  initialRouteName?: keyof RootStackParamList;
+}
 
-export default function AppNavigator() {
+export default function AppNavigator({ initialRouteName = 'Login' }: Props) {
   return (
     <Stack.Navigator
+      initialRouteName={initialRouteName}
       screenOptions={{
         headerShown: false,
-      }}
-      initialRouteName="Landing">
+      }}>
+      <Stack.Screen name="Landing" component={LandingScreen} />
       <Stack.Screen name="Login" component={Login} />
       <Stack.Screen name="Register" component={Register} />
       <Stack.Screen name="ForgotPassword" component={ForgotPassword} />
@@ -36,7 +40,6 @@ export default function AppNavigator() {
       <Stack.Screen name="DepositScreen" component={DepositScreen} />
       <Stack.Screen name="WithdrawlScreen" component={WithdrawalScreen} />
       <Stack.Screen name="MyAccount" component={MyAccountScreen} />
-      <Stack.Screen name="Landing" component={LandingScreen} />
     </Stack.Navigator>
   );
 }

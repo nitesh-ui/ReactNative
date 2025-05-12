@@ -7,17 +7,22 @@ import { NavigationContainer } from '@react-navigation/native';
 import AppNavigator from './navigation/AppNavigator';
 import Login from './screens/Login';
 import { BalanceProvider } from 'context/BalanceContext';
+import RootNavigator from 'navigation/RootNavigator';
+import { AuthProvider } from 'context/AuthContext';
 
 export default function App() {
   return (
     <SafeAreaProvider>
-      <BalanceProvider>
-        <PaperProvider theme={AppTheme}>
-          <NavigationContainer>
-            <AppNavigator />
-          </NavigationContainer>
-        </PaperProvider>
-      </BalanceProvider>
+      <AuthProvider>
+        <BalanceProvider>
+          <PaperProvider theme={AppTheme}>
+            <NavigationContainer>
+              {/* <AppNavigator /> */}
+              <RootNavigator />
+            </NavigationContainer>
+          </PaperProvider>
+        </BalanceProvider>
+      </AuthProvider>
     </SafeAreaProvider>
   );
 }

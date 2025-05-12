@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,15 +11,18 @@ import {
 import { useTheme, Button, Checkbox } from 'react-native-paper';
 import { Feather } from '@expo/vector-icons';
 import { MotiView } from 'moti';
-import { useNavigation } from '@react-navigation/native';
+import { CommonActions, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/AppNavigator';
 import { login as loginAPI, test } from '../api/auth';
 import AnimatedSnackbar from 'components/AnimatedSnackbar';
+import { AuthContext } from '../context/AuthContext';
+import CoinLoader from 'components/CoinLoader';
 
 export default function Login() {
   const { colors } = useTheme();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const { login } = useContext(AuthContext);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -34,6 +37,13 @@ export default function Login() {
   const [snackbarVisible, setSnackbarVisible] = useState(false);
   const [snackbarMsg, setSnackbarMsg] = useState('');
   const [snackbarType, setSnackbarType] = useState<'success' | 'error'>('success');
+
+  useEffect(() => {
+    if (snackbarVisible) {
+      const t = setTimeout(() => setSnackbarVisible(false), 3000);
+      return () => clearTimeout(t);
+    }
+  }, [snackbarVisible]);
 
   const validateAndSubmit = async () => {
     const newErrors = { email: '', password: '' };
@@ -62,8 +72,8 @@ export default function Login() {
 
     try {
       setLoading(true);
-      const response = await loginAPI(email, password);
-      console.log('✅ Login Success:', response);
+      await login(email.trim(), password);
+      // console.log('✅ Login Success:', response);
 
       // Show success snackbar
       setSnackbarMsg('Logged in successfully!');
@@ -71,7 +81,12 @@ export default function Login() {
       setSnackbarVisible(true);
 
       setTimeout(() => {
-        navigation.replace('HomeScreen');
+        navigation.dispatch(
+          CommonActions.reset({
+            index: 0,
+            routes: [{ name: 'HomeScreen' }],
+          })
+        );
       }, 1000);
     } catch (err) {
       console.error('Login error:', err?.response?.data || err.message);
@@ -219,6 +234,8 @@ export default function Login() {
         message={snackbarMsg}
         onDismiss={() => setSnackbarVisible(false)}
       />
+      {/* overlay pulsating coin loader */}
+      <CoinLoader visible={loading} />
     </KeyboardAvoidingView>
   );
 }

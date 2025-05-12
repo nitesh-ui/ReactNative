@@ -13,6 +13,14 @@ import { Picker } from '@react-native-picker/picker';
 import { Feather } from '@expo/vector-icons';
 import { MotiView } from 'moti';
 
+// import { signup } from '../api/auth';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { RootStackParamList } from '../navigation/AppNavigator';
+import { signup } from '../api/auth';
+import apiClient from 'api/client';
+import CoinLoader from 'components/CoinLoader';
+
 const countryCodes = [
   { label: '🇮🇳 +91', value: '+91' },
   { label: '🇦🇺 +43', value: '+43' },
@@ -44,11 +52,14 @@ export default function Register() {
     confirmPassword: false,
   });
 
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const [loading, setLoading] = useState(false);
+
   const [menuVisible, setMenuVisible] = useState(false);
   const openMenu = () => setMenuVisible(true);
   const closeMenu = () => setMenuVisible(false);
 
-  const validateAndSubmit = () => {
+  const validateAndSubmit = async () => {
     const newErrors = { email: '', phone: '', password: '', confirmPassword: '' };
     let valid = true;
     const newShake = { email: false, phone: false, password: false, confirmPassword: false };
@@ -85,7 +96,19 @@ export default function Register() {
     }, 500);
 
     if (valid) {
-      console.log('🎉 Registered:', { email, phone: `${countryCode} ${phone}`, password });
+      try {
+        setLoading(true);
+        const response = await signup(email, phone, password, confirmPassword);
+        console.log('✅ Registration successful:', response);
+
+        // Navigate to login page
+        navigation.navigate('Login');
+      } catch (error) {
+        console.error('❌ Registration failed:', error?.response?.data || error.message);
+        // Optionally show a toast/snackbar here
+      } finally {
+        setLoading(false);
+      }
     }
   };
 
@@ -277,11 +300,14 @@ export default function Register() {
           <Button
             mode="contained"
             onPress={validateAndSubmit}
+            loading={loading}
+            disabled={loading}
             style={{ marginTop: 8, borderRadius: 12, backgroundColor: colors.primary }}
             labelStyle={{ fontWeight: 'bold', color: '#000' }}>
             Sign Up
           </Button>
         </View>
+        <CoinLoader visible={loading} />
       </ScrollView>
     </KeyboardAvoidingView>
   );
