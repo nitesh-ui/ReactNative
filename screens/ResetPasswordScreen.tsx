@@ -1,118 +1,132 @@
-import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  KeyboardAvoidingView,
-  Platform,
-  TouchableOpacity,
-  ScrollView,
-} from 'react-native';
-import { Button, useTheme } from 'react-native-paper';
-import { Feather } from '@expo/vector-icons';
+// screens/LandingScreen2.tsx
+import React from 'react';
+import { View, Text, Image, Dimensions, StyleSheet, Platform } from 'react-native';
+import { useTheme } from 'react-native-paper';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { MotiView, AnimatePresence } from 'moti';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { RootStackParamList } from '../navigation/AppNavigator';
+import GradientButton from '../components/GradientButton';
 
-export default function ResetPasswordScreen() {
+export default function LandingScreen2() {
   const { colors } = useTheme();
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [error, setError] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-
-  const handleReset = () => {
-    if (newPassword.length < 6) {
-      setError('Password must be at least 6 characters.');
-    } else if (newPassword !== confirmPassword) {
-      setError('Passwords do not match.');
-    } else {
-      setError('');
-      console.log('🔐 Password reset successful!');
-    }
-  };
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const screenWidth = Dimensions.get('window').width;
+  const coinSize = screenWidth * 0.6; // 60% width
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      style={{ flex: 1, backgroundColor: colors.background }}>
-      <ScrollView
-        contentContainerStyle={{
-          flexGrow: 1,
-          justifyContent: 'center',
-          paddingHorizontal: 24,
-        }}
-        keyboardShouldPersistTaps="handled">
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      <AnimatePresence>
+        {/* Title */}
         <MotiView
-          from={{ opacity: 0, translateY: -20 }}
+          from={{ opacity: 0, translateY: 50 }}
           animate={{ opacity: 1, translateY: 0 }}
-          transition={{ type: 'timing', duration: 500 }}
-          style={{ marginBottom: 32, alignItems: 'center' }}>
-          <Text style={{ fontSize: 28, fontWeight: 'bold', color: colors.text }}>
-            🔒 Reset Your Password
-          </Text>
+          transition={{ type: 'timing', duration: 700 }}
+          style={styles.centered}>
+          <Text style={[styles.title, { color: colors.text }]}>Flip To Win</Text>
+          <MotiView
+            from={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 300, duration: 600 }}
+            style={styles.subtitleContainer}>
+            <Text style={styles.subtitleText}>FLIP</Text>
+            <Text style={styles.subtitleDot}>|</Text>
+            <Text style={styles.subtitleText}>EARN</Text>
+            <Text style={styles.subtitleDot}>|</Text>
+            <Text style={styles.subtitleText}>REPEAT</Text>
+          </MotiView>
         </MotiView>
 
-        {/* New Password */}
-        <View style={{ position: 'relative', marginBottom: 16 }}>
-          <TextInput
-            placeholder="New Password"
-            placeholderTextColor="#aaa"
-            secureTextEntry={!showPassword}
-            value={newPassword}
-            onChangeText={setNewPassword}
-            style={{
-              backgroundColor: 'white',
-              borderRadius: 12,
-              paddingVertical: 12,
-              paddingHorizontal: 16,
-              paddingRight: 45,
-              borderWidth: error ? 2 : 0,
-              borderColor: error ? colors.error : 'transparent',
-            }}
-          />
-          <TouchableOpacity
-            onPress={() => setShowPassword(!showPassword)}
-            style={{ position: 'absolute', right: 16, top: '30%' }}>
-            <Feather name={showPassword ? 'eye-off' : 'eye'} size={20} color="#444" />
-          </TouchableOpacity>
-        </View>
-
-        {/* Confirm Password */}
-        <TextInput
-          placeholder="Confirm Password"
-          placeholderTextColor="#aaa"
-          secureTextEntry={!showPassword}
-          value={confirmPassword}
-          onChangeText={setConfirmPassword}
-          style={{
-            backgroundColor: 'white',
-            borderRadius: 12,
-            paddingVertical: 12,
-            paddingHorizontal: 16,
-            borderWidth: error ? 2 : 0,
-            borderColor: error ? colors.error : 'transparent',
+        {/* 3D Pulsating Coin */}
+        <MotiView
+          from={{ scale: 1, rotateX: '0deg', rotateY: '0deg', opacity: 0 }}
+          animate={{
+            scale: [1, 1.1, 1],
+            rotateX: ['0deg', '15deg', '0deg'],
+            rotateY: ['0deg', '15deg', '0deg'],
+            opacity: 1,
           }}
-        />
+          transition={{
+            repeat: Infinity,
+            type: 'timing',
+            duration: 2000,
+            loop: true,
+          }}
+          style={[styles.coinContainer, { width: coinSize, height: coinSize }]}>
+          <Image
+            source={require('../assets/head.png')}
+            style={{ width: coinSize, height: coinSize }}
+            resizeMode="contain"
+          />
+        </MotiView>
 
-        <AnimatePresence>
-          {error ? (
-            <MotiView
-              from={{ opacity: 0, translateY: -10 }}
-              animate={{ opacity: 1, translateY: 0 }}
-              exit={{ opacity: 0 }}
-              style={{ marginTop: 8 }}>
-              <Text style={{ color: colors.error, fontSize: 13 }}>{error}</Text>
-            </MotiView>
-          ) : null}
-        </AnimatePresence>
+        {/* Buttons */}
+        <MotiView
+          from={{ opacity: 0, translateY: 20 }}
+          animate={{ opacity: 1, translateY: 0 }}
+          transition={{ delay: 1000, duration: 600 }}
+          style={styles.buttonsContainer}>
+          <GradientButton onPress={() => navigation.navigate('Register')}>Sign Up</GradientButton>
 
-        <Button
-          mode="contained"
-          onPress={handleReset}
-          style={{ marginTop: 24, borderRadius: 12, backgroundColor: colors.primary }}
-          labelStyle={{ fontWeight: 'bold', color: '#000' }}>
-          Submit
-        </Button>
-      </ScrollView>
-    </KeyboardAvoidingView>
+          <View style={styles.loginLink}>
+            <Text style={{ color: '#fff', opacity: 0.8 }}>
+              Already have an account?{' '}
+              <Text style={{ color: colors.primary, fontWeight: '600' }}>Log In</Text>
+            </Text>
+          </View>
+        </MotiView>
+      </AnimatePresence>
+    </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    justifyContent: 'space-evenly',
+    paddingHorizontal: 24,
+    paddingTop: Platform.OS === 'android' ? 24 : 0,
+  },
+  centered: {
+    alignItems: 'center',
+  },
+  title: {
+    fontSize: 34,
+    fontWeight: 'bold',
+    marginBottom: 12,
+  },
+  subtitleContainer: {
+    flexDirection: 'row',
+    gap: 6,
+    backgroundColor: '#fcd34d33',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 20,
+  },
+  subtitleText: {
+    fontWeight: '700',
+    color: '#fcd34d',
+    fontSize: 12,
+    letterSpacing: 0.5,
+  },
+  subtitleDot: {
+    fontWeight: 'bold',
+    color: '#fcd34d',
+    marginHorizontal: 2,
+    fontSize: 12,
+  },
+  coinContainer: {
+    alignSelf: 'center',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  buttonsContainer: {
+    width: '100%',
+    alignItems: 'center',
+  },
+  loginLink: {
+    marginTop: 16,
+    alignItems: 'center',
+  },
+});

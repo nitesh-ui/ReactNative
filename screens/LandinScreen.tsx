@@ -1,37 +1,31 @@
+// screens/LandingScreen.tsx
 import React from 'react';
-import {
-  View,
-  Text,
-  Image,
-  TouchableOpacity,
-  Dimensions,
-  StyleSheet,
-  Platform,
-} from 'react-native';
+import { View, Text, Image, Dimensions, StyleSheet, Platform, ImageBackground } from 'react-native';
 import { useTheme } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MotiView, AnimatePresence } from 'moti';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/AppNavigator';
+import GradientButton from '../components/GradientButton';
 
 export default function LandingScreen() {
   const { colors } = useTheme();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const screenWidth = Dimensions.get('window').width;
+  const coinSize = screenWidth * 0.6; // make the coin 60% of screen width
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+    <ImageBackground style={[styles.container]} source={require('../assets/bg1.jpg')}>
       <AnimatePresence>
+        {/* TITLE + SUBTITLE */}
         <MotiView
           key="title"
           from={{ opacity: 0, translateY: 50 }}
           animate={{ opacity: 1, translateY: 0 }}
-          exit={{ opacity: 0, translateY: -50 }}
           transition={{ type: 'timing', duration: 700 }}
           style={styles.centered}>
           <Text style={[styles.title, { color: colors.text }]}>Flip To Win</Text>
-
           <MotiView
             key="subtitle"
             from={{ opacity: 0 }}
@@ -46,40 +40,50 @@ export default function LandingScreen() {
           </MotiView>
         </MotiView>
 
+        {/* 3D PULSATING COIN */}
         <MotiView
           key="coin"
-          from={{ scale: 0.5, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{ type: 'spring', delay: 500, damping: 10 }}
-          style={styles.coinContainer}>
+          from={{ scale: 1, rotateX: '0deg', rotateY: '0deg', opacity: 0 }}
+          animate={{
+            scale: [1, 1.1, 1],
+            rotateX: ['0deg', '15deg', '0deg'],
+            rotateY: ['0deg', '15deg', '0deg'],
+            opacity: 1,
+          }}
+          transition={{
+            type: 'timing',
+            duration: 2000,
+            loop: true,
+            repeat: Infinity,
+          }}
+          style={[styles.coinContainer, { width: coinSize, height: coinSize }]}>
           <Image
             source={require('../assets/head.png')}
-            style={{ width: screenWidth * 0.5, height: screenWidth * 0.5 }}
+            style={{ width: coinSize, height: coinSize }}
             resizeMode="contain"
           />
         </MotiView>
 
-        <MotiView
+        {/* ACTION BUTTONS */}
+        {/* <MotiView
           key="buttons"
           from={{ opacity: 0, translateY: 20 }}
           animate={{ opacity: 1, translateY: 0 }}
-          transition={{ delay: 900, duration: 600 }}
-          style={{ width: '100%' }}>
-          <TouchableOpacity
-            onPress={() => navigation.navigate('Register')}
-            style={[styles.signupBtn, { backgroundColor: colors.primary }]}>
-            <Text style={styles.signupText}>Sign Up</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity onPress={() => navigation.navigate('Login')} style={styles.loginLink}>
+          transition={{ delay: 1000, duration: 600 }}
+          style={styles.buttonsContainer}>
+          <GradientButton onPress={() => navigation.navigate('Register')}>Sign Up</GradientButton>
+          <View style={styles.loginLink}>
             <Text style={{ color: '#fff', opacity: 0.8 }}>
               Already have an account?{' '}
               <Text style={{ color: colors.primary, fontWeight: '600' }}>Log In</Text>
             </Text>
-          </TouchableOpacity>
-        </MotiView>
+          </View>
+        </MotiView> */}
+        <GradientButton onPress={() => navigation.navigate('Login')}>
+          Let's get started
+        </GradientButton>
       </AnimatePresence>
-    </SafeAreaView>
+    </ImageBackground>
   );
 }
 
@@ -120,20 +124,15 @@ const styles = StyleSheet.create({
   },
   coinContainer: {
     alignSelf: 'center',
-  },
-  signupBtn: {
-    marginHorizontal: 32,
-    paddingVertical: 14,
-    borderRadius: 24,
+    justifyContent: 'center',
     alignItems: 'center',
   },
-  signupText: {
-    color: '#000',
-    fontWeight: '700',
-    fontSize: 16,
+  buttonsContainer: {
+    width: '100%',
+    alignItems: 'center',
   },
   loginLink: {
+    marginTop: 16,
     alignItems: 'center',
-    marginTop: 12,
   },
 });

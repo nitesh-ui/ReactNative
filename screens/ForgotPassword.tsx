@@ -1,112 +1,120 @@
-import React, { useState } from 'react';
+// screens/ForgotPasswordScreen2.tsx
+import React, { useState, useEffect } from 'react';
 import {
+  SafeAreaView,
   View,
-  TextInput,
   Text,
   KeyboardAvoidingView,
   Platform,
-  TextStyle,
-  ViewStyle,
+  ImageBackground,
+  StyleSheet,
 } from 'react-native';
-import { Button, useTheme } from 'react-native-paper';
-import { MotiView, AnimatePresence, ScrollView } from 'moti';
-import { Feather } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useTheme } from 'react-native-paper';
+import { CommonActions, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/AppNavigator';
 
+import FloatingInput from '../components/FloatingInput';
+import GradientButton from '../components/GradientButton';
+import AnimatedSnackbar from '../components/AnimatedSnackbar';
+import { MotiView } from 'moti';
+
 export default function ForgotPasswordScreen() {
   const { colors } = useTheme();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+
   const [input, setInput] = useState('');
   const [error, setError] = useState('');
   const [shake, setShake] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [snackbar, setSnackbar] = useState<{
+    visible: boolean;
+    message: string;
+    type: 'success' | 'error';
+  }>({ visible: false, message: '', type: 'success' });
 
-  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  // auto-hide snackbar
+  useEffect(() => {
+    if (snackbar.visible) {
+      const t = setTimeout(() => setSnackbar((s) => ({ ...s, visible: false })), 3000);
+      return () => clearTimeout(t);
+    }
+  }, [snackbar.visible]);
 
   const handleSendCode = () => {
     if (!input.trim()) {
-      setError('Please enter your email or phone number.');
-      setShake(true); // trigger shake
-      setTimeout(() => setShake(false), 500); // stop shaking after animation
-    } else {
-      setError('');
-      console.log('📨 Code sent to:', input);
-      navigation.navigate('VerificationCode', { input });
+      setError('Required');
+      setShake(true);
+      setTimeout(() => setShake(false), 500);
+      return;
     }
+
+    setError('');
+    setLoading(true);
+
+    // replace with your real API call
+    setTimeout(() => {
+      setLoading(false);
+      setSnackbar({ visible: true, message: 'Code sent!', type: 'success' });
+      navigation.dispatch(CommonActions.navigate('VerificationCode', { input: input.trim() }));
+    }, 1200);
   };
 
-  const inputErrorStyle: TextStyle | ViewStyle = error
-    ? {
-        borderWidth: 1.5,
-        borderColor: colors.error,
-        backgroundColor: '#ffe5e5',
-      }
-    : {};
-
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1, backgroundColor: colors.background }}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
-        <View style={{ flex: 1, justifyContent: 'center', paddingHorizontal: 24 }}>
-          <MotiView
-            from={{ opacity: 0, translateY: -30 }}
-            animate={{ opacity: 1, translateY: 0 }}
-            transition={{ type: 'timing', duration: 600 }}
-            style={{ marginBottom: 32, alignItems: 'center' }}>
-            <Text style={{ fontSize: 28, fontWeight: 'bold', color: colors.text }}>
-              🔑 Forgot Password?
-            </Text>
-          </MotiView>
-
-          {/* Animated Input Field with Icon */}
-          <AnimatePresence>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+      <ImageBackground source={require('../assets/bg1.jpg')} style={{ flex: 1 }} resizeMode="cover">
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+          <View style={styles.container}>
             <MotiView
-              from={{ translateX: 0 }}
-              animate={{ translateX: shake ? [-10, 10, -8, 8, -5, 5, 0] : 0 }}
-              transition={{ type: 'timing', duration: 300 }}
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                backgroundColor: 'white',
-                borderRadius: 12,
-                paddingHorizontal: 12,
-                ...inputErrorStyle,
-              }}>
-              <Feather name="user" size={20} color="#aaa" style={{ marginRight: 8 }} />
-              <TextInput
-                placeholder="Phone Number or Email"
-                placeholderTextColor="#aaa"
-                value={input}
-                onChangeText={setInput}
-                style={{
-                  flex: 1,
-                  paddingVertical: 12,
-                  fontSize: 16,
-                }}
-              />
+              from={{ opacity: 0, translateY: -20 }}
+              animate={{ opacity: 1, translateY: 0 }}
+              transition={{ duration: 600 }}>
+              <Text style={[styles.title, { color: colors.text }]}>🔑 Forgot Password?</Text>
             </MotiView>
-          </AnimatePresence>
 
-          {/* Error Message */}
-          {error ? (
-            <Text style={{ color: colors.error, fontSize: 13, marginTop: 4 }}>{error}</Text>
-          ) : null}
+            <FloatingInput
+              label="Email or Phone"
+              iconName="user"
+              value={input}
+              onChangeText={setInput}
+              error={error}
+              shake={shake}
+              keyboardType="default"
+            />
 
-          {/* Send Code Button */}
-          <Button
-            mode="contained"
-            onPress={handleSendCode}
-            style={{
-              marginTop: 12,
-              borderRadius: 12,
-              backgroundColor: colors.primary,
-            }}
-            labelStyle={{ fontWeight: 'bold', color: '#000' }}>
-            Send Code
-          </Button>
-        </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+            <GradientButton onPress={handleSendCode} loading={loading} disabled={loading}>
+              Send Code
+            </GradientButton>
+          </View>
+
+          <AnimatedSnackbar
+            visible={snackbar.visible}
+            type={snackbar.type}
+            message={snackbar.message}
+            onDismiss={() => setSnackbar((s) => ({ ...s, visible: false }))}
+          />
+        </KeyboardAvoidingView>
+      </ImageBackground>
+    </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    justifyContent: 'center',
+    padding: 24,
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  card: {
+    padding: 16,
+    gap: 16,
+  },
+});
