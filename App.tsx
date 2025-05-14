@@ -9,6 +9,7 @@ import Login from './screens/Login';
 import { BalanceProvider } from 'context/BalanceContext';
 import RootNavigator from 'navigation/RootNavigator';
 import { AuthProvider } from 'context/AuthContext';
+import { SoundProvider } from 'context/SoundContext';
 
 export default function App() {
   return (
@@ -16,10 +17,12 @@ export default function App() {
       <AuthProvider>
         <BalanceProvider>
           <PaperProvider theme={AppTheme}>
-            <NavigationContainer>
-              {/* <AppNavigator /> */}
-              <RootNavigator />
-            </NavigationContainer>
+            <SoundProvider>
+              <NavigationContainer>
+                {/* <AppNavigator /> */}
+                <RootNavigator />
+              </NavigationContainer>
+            </SoundProvider>
           </PaperProvider>
         </BalanceProvider>
       </AuthProvider>

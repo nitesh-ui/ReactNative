@@ -1,25 +1,28 @@
-import React, { useState } from 'react';
+// screens/Register.tsx
+import React, { useState, useContext, useEffect } from 'react';
 import {
   View,
   Text,
-  TextInput,
-  TouchableOpacity,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  ImageBackground,
+  TouchableOpacity,
+  StyleSheet,
+  TextInput,
 } from 'react-native';
-import { Button, useTheme, Menu, Divider } from 'react-native-paper';
-import { Picker } from '@react-native-picker/picker';
-import { Feather } from '@expo/vector-icons';
+import { useTheme, Divider } from 'react-native-paper';
 import { MotiView } from 'moti';
-
-// import { signup } from '../api/auth';
-import { useNavigation } from '@react-navigation/native';
+import { CommonActions, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/AppNavigator';
 import { signup } from '../api/auth';
-import apiClient from 'api/client';
-import CoinLoader from 'components/CoinLoader';
+import CoinLoader from '../components/CoinLoader';
+import AnimatedSnackbar from '../components/AnimatedSnackbar';
+import FloatingInput from '../components/FloatingInput';
+import GradientButton from '../components/GradientButton';
+import { Feather } from '@expo/vector-icons';
+import { Menu } from 'react-native-paper';
 
 const countryCodes = [
   { label: '🇮🇳 +91', value: '+91' },
@@ -31,284 +34,267 @@ const countryCodes = [
 
 export default function Register() {
   const { colors } = useTheme();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
   const [email, setEmail] = useState('');
   const [countryCode, setCountryCode] = useState('+91');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
+  const [confirm, setConfirm] = useState('');
+
   const [errors, setErrors] = useState({
     email: '',
     phone: '',
     password: '',
-    confirmPassword: '',
+    confirm: '',
   });
-
   const [shake, setShake] = useState({
     email: false,
     phone: false,
     password: false,
-    confirmPassword: false,
+    confirm: false,
   });
-
-  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const [loading, setLoading] = useState(false);
 
   const [menuVisible, setMenuVisible] = useState(false);
   const openMenu = () => setMenuVisible(true);
   const closeMenu = () => setMenuVisible(false);
 
+  const [loading, setLoading] = useState(false);
+  const [snackbar, setSnackbar] = useState({
+    show: false,
+    msg: '',
+    type: 'success' as 'success' | 'error',
+  });
+
+  useEffect(() => {
+    if (snackbar.show) {
+      const t = setTimeout(() => setSnackbar((s) => ({ ...s, show: false })), 3000);
+      return () => clearTimeout(t);
+    }
+  }, [snackbar.show]);
+
   const validateAndSubmit = async () => {
-    const newErrors = { email: '', phone: '', password: '', confirmPassword: '' };
-    let valid = true;
-    const newShake = { email: false, phone: false, password: false, confirmPassword: false };
+    const e = { email: '', phone: '', password: '', confirm: '' };
+    const s = { email: false, phone: false, password: false, confirm: false };
+    let ok = true;
 
     if (!email.includes('@')) {
-      newErrors.email = 'Invalid email';
-      newShake.email = true;
-      valid = false;
+      e.email = 'Invalid email';
+      s.email = true;
+      ok = false;
+    }
+    if (phone.trim().length < 7) {
+      e.phone = 'Invalid phone';
+      s.phone = true;
+      ok = false;
+    }
+    if (password.length < 6) {
+      e.password = 'Min 6 characters';
+      s.password = true;
+      ok = false;
+    }
+    if (confirm !== password) {
+      e.confirm = 'Doesn’t match';
+      s.confirm = true;
+      ok = false;
     }
 
-    if (!phone || phone.length < 7) {
-      newErrors.phone = 'Invalid phone number';
-      newShake.phone = true;
-      valid = false;
-    }
+    setErrors(e);
+    setShake(s);
+    setTimeout(
+      () => setShake({ email: false, phone: false, password: false, confirm: false }),
+      500
+    );
 
-    if (!password || password.length < 6) {
-      newErrors.password = 'Password must be at least 6 characters';
-      newShake.password = true;
-      valid = false;
-    }
+    if (!ok) return;
 
-    if (password !== confirmPassword) {
-      newErrors.confirmPassword = 'Passwords do not match';
-      newShake.confirmPassword = true;
-      valid = false;
-    }
-
-    setErrors(newErrors);
-    setShake(newShake);
-
-    setTimeout(() => {
-      setShake({ email: false, phone: false, password: false, confirmPassword: false });
-    }, 500);
-
-    if (valid) {
-      try {
-        setLoading(true);
-        const response = await signup(email, phone, password, confirmPassword);
-        console.log('✅ Registration successful:', response);
-
-        // Navigate to login page
-        navigation.navigate('Login');
-      } catch (error) {
-        console.error('❌ Registration failed:', error?.response?.data || error.message);
-        // Optionally show a toast/snackbar here
-      } finally {
-        setLoading(false);
-      }
+    try {
+      setLoading(true);
+      await signup(email.trim(), countryCode + phone, password, confirm);
+      setSnackbar({ show: true, msg: 'Registered! Please log in.', type: 'success' });
+      setTimeout(
+        () =>
+          navigation.dispatch(
+            CommonActions.reset({
+              index: 0,
+              routes: [{ name: 'Login' }],
+            })
+          ),
+        800
+      );
+    } catch (err: any) {
+      setSnackbar({
+        show: true,
+        msg: err?.response?.data?.message || 'Signup failed',
+        type: 'error',
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
     <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      style={{ flex: 1 }}>
-      <ScrollView
-        contentContainerStyle={{
-          flexGrow: 1,
-          justifyContent: 'center',
-          backgroundColor: colors.background,
-          paddingHorizontal: 24,
-        }}
-        keyboardShouldPersistTaps="handled">
-        <MotiView
-          from={{ opacity: 0, translateY: -30 }}
-          animate={{ opacity: 1, translateY: 0 }}
-          transition={{ type: 'timing', duration: 600 }}
-          style={{ marginBottom: 24, alignItems: 'center' }}>
-          <Text style={{ fontSize: 28, fontWeight: 'bold', color: colors.text }}>
-            ✨ Create an Account
-          </Text>
-        </MotiView>
-
-        <View style={{ gap: 16 }}>
-          {/* Email with shake */}
+      style={{ flex: 1 }}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <ImageBackground source={require('../assets/bg1.jpg')} style={{ flex: 1 }} resizeMode="cover">
+        <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+          {/* Header */}
           <MotiView
-            from={{ translateX: 0 }}
-            animate={{ translateX: shake.email ? -10 : 0 }}
-            transition={{
-              type: 'timing',
-              duration: 100,
-              repeat: shake.email ? 3 : 0,
-              repeatReverse: true,
-            }}>
-            <TextInput
-              placeholder="Email"
-              placeholderTextColor="#aaa"
+            from={{ opacity: 0, translateY: -20 }}
+            animate={{ opacity: 1, translateY: 0 }}
+            transition={{ duration: 600 }}
+            style={styles.header}>
+            <Text style={[styles.title, { color: colors.text }]}>✨ Create an Account</Text>
+          </MotiView>
+
+          {/* Form */}
+          <View style={{ gap: 16 }}>
+            <FloatingInput
+              label="Email"
+              iconName="mail"
               value={email}
               onChangeText={setEmail}
-              style={{
-                backgroundColor: 'white',
-                borderRadius: 12,
-                paddingVertical: 12,
-                paddingHorizontal: 16,
-                borderWidth: errors.email ? 1.5 : 0,
-                borderColor: errors.email ? colors.error : 'transparent',
-              }}
+              keyboardType="email-address"
+              error={errors.email}
+              shake={shake.email}
             />
-          </MotiView>
-          {errors.email ? (
-            <Text style={{ color: colors.error, fontSize: 13 }}>{errors.email}</Text>
-          ) : null}
 
-          {/* Phone with shake */}
-          <MotiView
-            from={{ translateX: 0 }}
-            animate={{ translateX: shake.phone ? -10 : 0 }}
-            transition={{
-              type: 'timing',
-              duration: 100,
-              repeat: shake.phone ? 3 : 0,
-              repeatReverse: true,
-            }}>
-            <View
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                backgroundColor: 'white',
-                borderRadius: 12,
-                overflow: 'hidden',
-                borderWidth: errors.phone ? 1.5 : 0,
-                borderColor: errors.phone ? colors.error : 'transparent',
-              }}>
-              <Menu
-                visible={menuVisible}
-                onDismiss={closeMenu}
-                anchor={
-                  <TouchableOpacity
-                    onPress={openMenu}
-                    style={{ width: 100, height: 50, justifyContent: 'center', paddingLeft: 12 }}>
-                    <Text style={{ fontSize: 16 }}>
-                      {countryCodes.find((c) => c.value === countryCode)?.label}
-                    </Text>
-                  </TouchableOpacity>
-                }>
-                {countryCodes.map((c, idx) => (
-                  <React.Fragment key={c.value}>
-                    <Menu.Item
-                      onPress={() => {
-                        setCountryCode(c.value);
-                        closeMenu();
-                      }}
-                      title={c.label}
-                    />
-                    {idx < countryCodes.length - 1 && <Divider />}
-                  </React.Fragment>
-                ))}
-              </Menu>
-
-              <TextInput
-                placeholder="Phone Number"
-                placeholderTextColor="#aaa"
-                keyboardType="phone-pad"
-                value={phone}
-                onChangeText={setPhone}
-                style={{
-                  flex: 1,
-                  paddingVertical: 12,
-                  paddingHorizontal: 16,
-                }}
-              />
+            {/* Phone */}
+            <View>
+              <MotiView
+                from={{ translateX: 0 }}
+                animate={{ translateX: shake.phone ? -8 : 0 }}
+                transition={{
+                  type: 'timing',
+                  duration: 80,
+                  repeat: shake.phone ? 3 : 0,
+                  repeatReverse: true,
+                }}>
+                <View
+                  style={[
+                    styles.phoneContainer,
+                    { borderColor: errors.phone ? colors.error : 'rgba(255,255,255,0.4)' },
+                  ]}>
+                  <Menu
+                    visible={menuVisible}
+                    onDismiss={closeMenu}
+                    anchor={
+                      <TouchableOpacity onPress={openMenu} style={styles.phonePrefix}>
+                        <Text style={styles.phonePrefixText}>
+                          {countryCodes.find((c) => c.value === countryCode)?.label}
+                        </Text>
+                        <Feather name="chevron-down" size={18} color="#fff" />
+                      </TouchableOpacity>
+                    }>
+                    {countryCodes.map((c) => (
+                      <Menu.Item
+                        key={c.value}
+                        onPress={() => {
+                          setCountryCode(c.value);
+                          closeMenu();
+                        }}
+                        title={c.label}
+                      />
+                    ))}
+                  </Menu>
+                  <TextInput
+                    placeholder="Phone Number"
+                    placeholderTextColor="rgba(255,255,255,0.7)"
+                    keyboardType="phone-pad"
+                    value={phone}
+                    onChangeText={setPhone}
+                    style={styles.phoneInput}
+                  />
+                </View>
+              </MotiView>
+              {errors.phone ? (
+                <Text style={[styles.error, { color: colors.error }]}>{errors.phone}</Text>
+              ) : null}
             </View>
-          </MotiView>
-          {errors.phone ? (
-            <Text style={{ color: colors.error, fontSize: 13 }}>{errors.phone}</Text>
-          ) : null}
 
-          {/* Password with shake */}
-          <MotiView
-            from={{ translateX: 0 }}
-            animate={{ translateX: shake.password ? -10 : 0 }}
-            transition={{
-              type: 'timing',
-              duration: 100,
-              repeat: shake.password ? 3 : 0,
-              repeatReverse: true,
-            }}>
-            <View style={{ position: 'relative' }}>
-              <TextInput
-                placeholder="Password"
-                placeholderTextColor="#aaa"
-                secureTextEntry={!showPassword}
-                value={password}
-                onChangeText={setPassword}
-                style={{
-                  backgroundColor: 'white',
-                  borderRadius: 12,
-                  paddingVertical: 12,
-                  paddingHorizontal: 16,
-                  paddingRight: 45,
-                  borderWidth: errors.password ? 1.5 : 0,
-                  borderColor: errors.password ? colors.error : 'transparent',
-                }}
-              />
-              <TouchableOpacity
-                onPress={() => setShowPassword(!showPassword)}
-                style={{ position: 'absolute', right: 16, top: '30%' }}>
-                <Feather name={showPassword ? 'eye-off' : 'eye'} size={20} color="#444" />
-              </TouchableOpacity>
-            </View>
-          </MotiView>
-          {errors.password ? (
-            <Text style={{ color: colors.error, fontSize: 13 }}>{errors.password}</Text>
-          ) : null}
-
-          {/* Confirm Password with shake */}
-          <MotiView
-            from={{ translateX: 0 }}
-            animate={{ translateX: shake.confirmPassword ? -10 : 0 }}
-            transition={{
-              type: 'timing',
-              duration: 100,
-              repeat: shake.confirmPassword ? 3 : 0,
-              repeatReverse: true,
-            }}>
-            <TextInput
-              placeholder="Confirm Password"
-              placeholderTextColor="#aaa"
-              secureTextEntry={!showPassword}
-              value={confirmPassword}
-              onChangeText={setConfirmPassword}
-              style={{
-                backgroundColor: 'white',
-                borderRadius: 12,
-                paddingVertical: 12,
-                paddingHorizontal: 16,
-                borderWidth: errors.confirmPassword ? 1.5 : 0,
-                borderColor: errors.confirmPassword ? colors.error : 'transparent',
-              }}
+            <FloatingInput
+              label="Password"
+              iconName="lock"
+              value={password}
+              onChangeText={setPassword}
+              secure
+              error={errors.password}
+              shake={shake.password}
             />
-          </MotiView>
-          {errors.confirmPassword ? (
-            <Text style={{ color: colors.error, fontSize: 13 }}>{errors.confirmPassword}</Text>
-          ) : null}
 
-          {/* Sign Up Button */}
-          <Button
-            mode="contained"
-            onPress={validateAndSubmit}
-            loading={loading}
-            disabled={loading}
-            style={{ marginTop: 8, borderRadius: 12, backgroundColor: colors.primary }}
-            labelStyle={{ fontWeight: 'bold', color: '#000' }}>
-            Sign Up
-          </Button>
-        </View>
+            <FloatingInput
+              label="Confirm Password"
+              iconName="lock"
+              value={confirm}
+              onChangeText={setConfirm}
+              secure
+              error={errors.confirm}
+              shake={shake.confirm}
+            />
+
+            <GradientButton onPress={validateAndSubmit} loading={loading}>
+              Sign Up
+            </GradientButton>
+          </View>
+        </ScrollView>
+
+        <AnimatedSnackbar
+          visible={snackbar.show}
+          type={snackbar.type}
+          message={snackbar.msg}
+          onDismiss={() => setSnackbar((s) => ({ ...s, show: false }))}
+        />
+
         <CoinLoader visible={loading} />
-      </ScrollView>
+      </ImageBackground>
     </KeyboardAvoidingView>
   );
 }
+
+const styles = StyleSheet.create({
+  scroll: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    padding: 24,
+  },
+  header: {
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: 'bold',
+  },
+  phoneContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: 12,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    overflow: 'hidden',
+  },
+  phonePrefix: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+  },
+  phonePrefixText: {
+    color: '#fff',
+    fontSize: 16,
+    marginRight: 4,
+  },
+  phoneInput: {
+    flex: 1,
+    color: '#fff',
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+    fontSize: 16,
+  },
+  error: {
+    marginTop: 6,
+    marginLeft: 12,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+});
