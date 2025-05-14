@@ -9,13 +9,15 @@ import {
   TouchableOpacity,
   ScrollView,
   Dimensions,
+  ImageBackground,
 } from 'react-native';
-import { useTheme, Button } from 'react-native-paper';
+import { useTheme } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/AppNavigator';
 import { Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import GradientButton from '../components/GradientButton';
 
 const { width } = Dimensions.get('window');
 
@@ -32,63 +34,66 @@ export default function MyAccountScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-      {/* header */}
-      <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Feather name="arrow-left" size={24} color="#fff" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>My Profile</Text>
-      </View>
+    <SafeAreaView style={styles.safeArea}>
+      <ImageBackground
+        source={require('../assets/bg1.jpg')}
+        style={styles.background}
+        resizeMode="cover">
+        {/* header */}
+        <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
+          <TouchableOpacity onPress={() => navigation.goBack()}>
+            <Feather name="arrow-left" size={24} color="#fff" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>My Profile</Text>
+        </View>
 
-      <ScrollView contentContainerStyle={styles.content}>
-        {/* avatar + name */}
-        <View style={styles.profileRow}>
-          <Image source={userInfo.avatar} style={styles.avatar} />
-          <View style={styles.nameEmail}>
-            <Text style={styles.name}>{userInfo.fullName}</Text>
-            <Text style={styles.email}>{userInfo.email}</Text>
+        <ScrollView contentContainerStyle={styles.scrollContent}>
+          <View style={styles.glassCard}>
+            {/* avatar + name */}
+            <View style={styles.profileRow}>
+              <Image source={userInfo.avatar} style={styles.avatar} />
+              <View style={styles.nameEmail}>
+                <Text style={styles.name}>{userInfo.fullName}</Text>
+                <Text style={styles.email}>{userInfo.email}</Text>
+              </View>
+            </View>
+
+            {/* user information */}
+            <View style={styles.field}>
+              <Text style={styles.fieldLabel}>Full Name</Text>
+              <Text style={styles.fieldValue}>{userInfo.fullName}</Text>
+            </View>
+
+            <View style={styles.field}>
+              <Text style={styles.fieldLabel}>Email</Text>
+              <Text style={styles.fieldValue}>{userInfo.email}</Text>
+            </View>
+
+            <View style={styles.field}>
+              <Text style={styles.fieldLabel}>Referral Code</Text>
+              <Text style={styles.fieldValue}>{userInfo.referCode}</Text>
+            </View>
+
+            {/* logout button */}
+            <GradientButton
+              onPress={() => {
+                /* your logout logic */
+                navigation.replace('Login');
+              }}
+              style={styles.logoutBtn}>
+              Logout
+            </GradientButton>
           </View>
-        </View>
-
-        {/* user information */}
-        <Text style={styles.sectionTitle}>User Information</Text>
-
-        <View style={styles.field}>
-          <Text style={styles.fieldLabel}>Full Name</Text>
-          <Text style={styles.fieldValue}>{userInfo.fullName}</Text>
-        </View>
-
-        <View style={styles.field}>
-          <Text style={styles.fieldLabel}>Email</Text>
-          <Text style={styles.fieldValue}>{userInfo.email}</Text>
-        </View>
-
-        <View style={styles.field}>
-          <Text style={styles.fieldLabel}>Refer Code (Optional)</Text>
-          <Text style={styles.fieldValue}>{userInfo.referCode}</Text>
-        </View>
-      </ScrollView>
-
-      {/* logout button */}
-      <Button
-        mode="contained"
-        onPress={() => {
-          /* your logout logic */
-          navigation.replace('Login');
-        }}
-        style={[styles.logoutBtn, { backgroundColor: colors.primary }]}
-        labelStyle={styles.logoutLabel}>
-        Logout
-      </Button>
+        </ScrollView>
+      </ImageBackground>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
+  safeArea: { flex: 1, backgroundColor: '#000' },
+  background: { flex: 1 },
+
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -104,11 +109,27 @@ const styles = StyleSheet.create({
     color: '#fff',
     marginRight: 24,
   },
-  content: {
+
+  scrollContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
     paddingHorizontal: 16,
-    paddingTop: 24,
-    paddingBottom: 16,
+    paddingBottom: 32,
   },
+  glassCard: {
+    width: '100%',
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 20,
+    padding: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+    // if you want a subtle shadow:
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+  },
+
   profileRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -119,7 +140,7 @@ const styles = StyleSheet.create({
     height: 72,
     borderRadius: 36,
     borderWidth: 2,
-    borderColor: '#5B3DFD',
+    borderColor: '#fff',
   },
   nameEmail: {
     marginLeft: 16,
@@ -130,21 +151,16 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   email: {
-    color: '#BBBBBB',
+    color: '#ccc',
     fontSize: 14,
     marginTop: 4,
   },
-  sectionTitle: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '700',
-    marginBottom: 16,
-  },
+
   field: {
     marginBottom: 20,
   },
   fieldLabel: {
-    color: '#BBBBBB',
+    color: '#ccc',
     fontSize: 13,
     marginBottom: 4,
   },
@@ -153,16 +169,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '500',
   },
+
   logoutBtn: {
-    marginHorizontal: 16,
-    marginBottom: 24,
+    marginTop: 8,
     borderRadius: 24,
     height: 48,
     justifyContent: 'center',
-  },
-  logoutLabel: {
-    color: '#000',
-    fontSize: 16,
-    fontWeight: '700',
   },
 });

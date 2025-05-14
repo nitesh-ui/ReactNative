@@ -73,7 +73,7 @@ export default function Login() {
       setSnackbarType('success');
       setSnackbarVisible(true);
       setTimeout(() => {
-        navigation.dispatch(CommonActions.reset({ index: 0, routes: [{ name: 'HomeScreen2' }] }));
+        navigation.dispatch(CommonActions.reset({ index: 0, routes: [{ name: 'HomeScreen' }] }));
       }, 800);
     } catch (err: any) {
       setSnackbarMsg(err?.response?.data?.message || 'Login failed');
