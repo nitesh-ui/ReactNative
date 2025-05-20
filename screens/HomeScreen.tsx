@@ -7,6 +7,7 @@ import {
   TextInput,
   TouchableOpacity,
   Dimensions,
+  Alert,
   StyleSheet,
   Platform,
   BackHandler,
@@ -14,7 +15,7 @@ import {
   ImageBackground,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Button, useTheme } from 'react-native-paper';
+import { Button, useTheme, Snackbar } from 'react-native-paper';
 import { MotiView } from 'moti';
 import ConfettiCannon from 'react-native-confetti-cannon';
 import { Audio } from 'expo-av';
@@ -24,13 +25,32 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/AppNavigator';
 
 import UserDropdown from 'components/UserDropdown';
-import AnimatedSnackbar from 'components/AnimatedSnackbar';
 import { AuthContext } from 'context/AuthContext';
 import { SoundContext } from 'context/SoundContext';
 import apiClient from 'api/client';
 
 const MIN_BET = 15;
 const { width: screenWidth } = Dimensions.get('window');
+
+// map country code → head/tail images
+const coinImages: Record<string, { head: any; tail: any }> = {
+  IN: {
+    head: require('../assets/in-head.png'),
+    tail: require('../assets/in-tail.png'),
+  },
+  US: {
+    head: require('../assets/us-head.png'),
+    tail: require('../assets/us-tail.png'),
+  },
+  CH: {
+    head: require('../assets/ch-head.png'),
+    tail: require('../assets/ch-tail.png'),
+  },
+  JP: {
+    head: require('../assets/jp-head.png'),
+    tail: require('../assets/jp-tail.png'),
+  },
+};
 
 const countryFlags = [
   { code: 'IN', symbol: '₹', value: 30, flag: require('../assets/in.png') },
@@ -45,15 +65,15 @@ export default function HomeScreen() {
   const { userId, userToken, username } = useContext(AuthContext);
   const { bgSound } = useContext(SoundContext);
 
-  // Animation state
+  // Animation
   const [selectedFace, setSelectedFace] = useState<'HEAD' | 'TAIL'>('HEAD');
   const [flipResult, setFlipResult] = useState<'HEAD' | 'TAIL'>('HEAD');
   const [flipping, setFlipping] = useState(false);
   const [rotation, setRotation] = useState(0);
 
   // Balances
-  const [availableBalance, setAvailableBalance] = useState(0);
-  const [pendingDelta, setPendingDelta] = useState(0);
+  const [walletBalance, setWalletBalance] = useState(0);
+  const [currentBalance, setCurrentBalance] = useState(0);
 
   // UI state
   const [selectedCountry, setSelectedCountry] = useState(countryFlags[0]);
@@ -68,19 +88,12 @@ export default function HomeScreen() {
   const [showConfetti, setShowConfetti] = useState(false);
 
   // Snackbar
-  const [snackbarVisible, setSnackbarVisible] = useState(false);
-  const [snackbarMsg, setSnackbarMsg] = useState('');
-  const [snackbarType, setSnackbarType] = useState<'success' | 'error'>('success');
+  const [snackbar, setSnackbar] = useState<{ visible: boolean; message: string }>({
+    visible: false,
+    message: '',
+  });
 
-  // Clear snackbar after 3s
-  useEffect(() => {
-    if (snackbarVisible) {
-      const t = setTimeout(() => setSnackbarVisible(false), 3000);
-      return () => clearTimeout(t);
-    }
-  }, [snackbarVisible]);
-
-  // Fetch balances on mount
+  // Load initial wallet + current balances
   const fetchBalance = useCallback(async () => {
     try {
       const resp = await apiClient.post(
@@ -88,13 +101,10 @@ export default function HomeScreen() {
         { userId },
         { headers: { Authorization: `Bearer ${userToken}` } }
       );
-      setAvailableBalance(resp.data.walletBalance);
-      setPendingDelta(resp.data.currentBalance);
+      setWalletBalance(resp.data.walletBalance);
+      setCurrentBalance(resp.data.currentBalance);
     } catch (e) {
-      console.error('fetchBalance error', e);
-      setSnackbarType('error');
-      setSnackbarMsg('Could not fetch balance');
-      setSnackbarVisible(true);
+      setSnackbar({ visible: true, message: 'Could not fetch balance.' });
     }
   }, [userId, userToken]);
 
@@ -102,15 +112,15 @@ export default function HomeScreen() {
     fetchBalance();
   }, [fetchBalance]);
 
-  // Load SFX
+  // Load sounds
   useEffect(() => {
     let fs: Audio.Sound, ws: Audio.Sound, ls: Audio.Sound;
     (async () => {
       fs = (await Audio.Sound.createAsync(require('../assets/sounds/coin-flip.mp3'))).sound;
-      ws = (await Audio.Sound.createAsync(require('../assets/sounds/win-sound.mp3'))).sound;
-      ls = (await Audio.Sound.createAsync(require('../assets/sounds/lose-sound.mp3'))).sound;
       setFlipSound(fs);
+      ws = (await Audio.Sound.createAsync(require('../assets/sounds/win-sound.mp3'))).sound;
       setWinSound(ws);
+      ls = (await Audio.Sound.createAsync(require('../assets/sounds/lose-sound.mp3'))).sound;
       setLoseSound(ls);
     })();
     return () => {
@@ -120,7 +130,7 @@ export default function HomeScreen() {
     };
   }, []);
 
-  // Duck BG music and play effect
+  // Duck bg + play effect
   const playEffect = useCallback(
     async (effect: Audio.Sound | null) => {
       if (!bgSound || !effect) return;
@@ -136,89 +146,95 @@ export default function HomeScreen() {
     [bgSound]
   );
 
-  // Prevent Android back if there’s pending
+  // Android back with pending currentBalance
   useEffect(() => {
     const onBack = () => {
-      if (pendingDelta !== 0) {
-        setSnackbarType('error');
-        setSnackbarMsg('Please takeout your pending balance first');
-        setSnackbarVisible(true);
+      if (currentBalance !== 0) {
+        setSnackbar({ visible: true, message: 'Please takeout before exiting.' });
         return true;
       }
       return false;
     };
     BackHandler.addEventListener('hardwareBackPress', onBack);
     return () => BackHandler.removeEventListener('hardwareBackPress', onBack);
-  }, [pendingDelta]);
+  }, [currentBalance]);
 
   // Flip
   const handleFlip = async () => {
     const bet = parseInt(amount, 10) || 0;
     if (bet < MIN_BET) {
-      setSnackbarType('error');
-      setSnackbarMsg(`Minimum bet is ${selectedCountry.symbol}${MIN_BET}`);
-      setSnackbarVisible(true);
-      return;
+      return setSnackbar({
+        visible: true,
+        message: `Minimum bet is ${selectedCountry.symbol}${MIN_BET}`,
+      });
     }
 
-    setFlipping(true);
+    // Play flip SFX + spin
     await flipSound?.replayAsync();
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    setFlipping(true);
     setRotation((r) => r + 720);
 
-    try {
-      const { data } = await apiClient.post(
-        '/play/flip',
-        { userId, face: selectedFace.toLowerCase(), amount: bet },
-        { headers: { Authorization: `Bearer ${userToken}` } }
-      );
-      // update UI from API
-      setFlipResult(data.coinFlip.toUpperCase() as 'HEAD' | 'TAIL');
-      setAvailableBalance(data.walletBalance);
-      setPendingDelta(data.currentBalance);
+    setTimeout(async () => {
+      try {
+        const { data } = await apiClient.post(
+          '/play/flip',
+          { userId, face: selectedFace.toLowerCase(), amount: bet },
+          { headers: { Authorization: `Bearer ${userToken}` } }
+        );
+        // API returns { result, coinFlip, currentBalance, walletBalance, totalBalance }
+        setFlipResult(data.coinFlip.toUpperCase());
+        setCurrentBalance(data.currentBalance);
+        setWalletBalance(data.walletBalance);
 
-      // play win/lose
-      await playEffect(data.result === 'win' ? winSound : loseSound);
-      if (data.result === 'win') {
-        setShowConfetti(true);
-        setTimeout(() => setShowConfetti(false), 3000);
+        // win/lose SFX + confetti
+        const won = data.result === 'win';
+        await playEffect(won ? winSound : loseSound);
+        if (won) {
+          setShowConfetti(true);
+          setTimeout(() => setShowConfetti(false), 3000);
+        }
+      } catch (e) {
+        setSnackbar({ visible: true, message: 'Could not play flip.' });
+      } finally {
+        setFlipping(false);
       }
-    } catch (e) {
-      console.error('flip error', e);
-      setSnackbarType('error');
-      setSnackbarMsg('Could not play flip');
-      setSnackbarVisible(true);
-    } finally {
-      setFlipping(false);
-    }
+    }, 800);
   };
 
   // Takeout
   const handleTakeout = async () => {
+    if (currentBalance === 0) return;
     try {
-      const resp = await apiClient.post(
+      const { data } = await apiClient.post(
         '/balance/takeout',
         { userId },
         { headers: { Authorization: `Bearer ${userToken}` } }
       );
-      setAvailableBalance(resp.data.walletBalance);
-      setPendingDelta(resp.data.currentBalance);
-      setSnackbarType('success');
-      setSnackbarMsg('Balance taken out');
-      setSnackbarVisible(true);
+      setWalletBalance(data.walletBalance);
+      setCurrentBalance(data.currentBalance);
     } catch (e) {
-      console.error('takeout error', e);
-      setSnackbarType('error');
-      setSnackbarMsg('Could not take out');
-      setSnackbarVisible(true);
+      setSnackbar({ visible: true, message: 'Could not take out.' });
     }
+  };
+
+  // Change country
+  const handleCountryChange = (c: (typeof countryFlags)[0]) => {
+    setSelectedCountry(c);
+    setAmount(`${c.value}`);
+  };
+
+  // choose coin image based on selectedCountry.code
+  const { head, tail } = coinImages[selectedCountry.code] || {
+    head: require('../assets/head.png'),
+    tail: require('../assets/tail.png'),
   };
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top', 'bottom']}>
       <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={{ flex: 1 }}>
         <ImageBackground
           source={require('../assets/bg1.jpg')}
           style={{ flex: 1 }}
@@ -226,16 +242,14 @@ export default function HomeScreen() {
           <View style={styles.container}>
             {/* Top Bar */}
             <View style={styles.topBar}>
-              <View style={styles.balanceBox}>
-                <Text style={{ color: '#fff', fontWeight: '600' }}>
-                  BALANCE: {selectedCountry.symbol}
-                  {availableBalance.toFixed(2)}
-                </Text>
-              </View>
+              <Text style={{ color: '#fff', fontWeight: '600' }}>
+                BALANCE: {selectedCountry.symbol}
+                {walletBalance.toFixed(2)}
+              </Text>
               <UserDropdown username={username ?? userId ?? ''} />
             </View>
 
-            {/* Main Content */}
+            {/* Main */}
             <View style={styles.content}>
               <Text style={[styles.title, { color: colors.text }]}>🪙 FLIP To Win</Text>
 
@@ -250,7 +264,7 @@ export default function HomeScreen() {
                     }}
                     transition={{ type: 'timing', duration: 1000 }}
                     style={styles.coinWrapper}>
-                    <Image source={require('../assets/head.png')} style={styles.coinImage} />
+                    <Image source={head} style={styles.coinImage} />
                   </MotiView>
                   <MotiView
                     from={{ rotateX: '180deg', translateY: 0 }}
@@ -260,7 +274,7 @@ export default function HomeScreen() {
                     }}
                     transition={{ type: 'timing', duration: 1000 }}
                     style={[styles.coinWrapper, styles.backface]}>
-                    <Image source={require('../assets/tail.png')} style={styles.coinImage} />
+                    <Image source={tail} style={styles.coinImage} />
                   </MotiView>
                 </View>
                 <MotiView
@@ -274,12 +288,12 @@ export default function HomeScreen() {
                 />
               </View>
 
-              {/* Pending */}
-              {pendingDelta !== 0 && (
-                <Text style={[styles.pending, { color: pendingDelta > 0 ? '#0f0' : '#f55' }]}>
-                  {pendingDelta > 0 ? '+' : ''}
+              {/* Current (pending) Balance */}
+              {currentBalance !== 0 && (
+                <Text style={[styles.pending, { color: currentBalance > 0 ? '#0f0' : '#f55' }]}>
+                  {currentBalance > 0 ? '+' : ''}
                   {selectedCountry.symbol}
-                  {Math.abs(pendingDelta).toFixed(2)} pending
+                  {Math.abs(currentBalance).toFixed(2)} pending
                 </Text>
               )}
 
@@ -287,7 +301,7 @@ export default function HomeScreen() {
               <Text style={[styles.label, { color: colors.text }]}>SELECT COUNTRY</Text>
               <View style={styles.countryRow}>
                 {countryFlags.map((c) => (
-                  <TouchableOpacity key={c.code} onPress={() => setSelectedCountry(c)}>
+                  <TouchableOpacity key={c.code} onPress={() => handleCountryChange(c)}>
                     <Image
                       source={c.flag}
                       style={[
@@ -308,7 +322,7 @@ export default function HomeScreen() {
                 style={styles.amountInput}
               />
 
-              {/* HEAD/TAIL */}
+              {/* HEAD / TAIL */}
               <View style={styles.faceRow}>
                 <Button
                   mode={selectedFace === 'HEAD' ? 'contained' : 'outlined'}
@@ -331,7 +345,7 @@ export default function HomeScreen() {
                 <Button
                   mode="outlined"
                   onPress={handleTakeout}
-                  disabled={pendingDelta === 0}
+                  disabled={currentBalance === 0}
                   style={styles.actionBtn}
                   labelStyle={{ color: '#fff' }}>
                   Takeout
@@ -351,30 +365,27 @@ export default function HomeScreen() {
             <View style={styles.bottomRow}>
               <Button
                 mode="contained"
+                onPress={() => navigation.navigate('DepositScreen')}
                 style={styles.bottomBtn}
-                contentStyle={styles.bottomContent}
-                labelStyle={styles.bottomLabel}
-                onPress={() => navigation.navigate('DepositScreen')}>
+                labelStyle={styles.bottomLabel}>
                 DEPOSIT
               </Button>
               <Button
                 mode="contained"
+                onPress={() => navigation.navigate('WithdrawlScreen')}
                 style={styles.bottomBtn}
-                contentStyle={styles.bottomContent}
-                labelStyle={styles.bottomLabel}
-                onPress={() => navigation.navigate('WithdrawlScreen')}>
+                labelStyle={styles.bottomLabel}>
                 WITHDRAW
               </Button>
             </View>
-
-            {/* Snackbar */}
-            <AnimatedSnackbar
-              visible={snackbarVisible}
-              type={snackbarType}
-              message={snackbarMsg}
-              onDismiss={() => setSnackbarVisible(false)}
-            />
           </View>
+
+          <Snackbar
+            visible={snackbar.visible}
+            onDismiss={() => setSnackbar((s) => ({ ...s, visible: false }))}
+            duration={3000}>
+            {snackbar.message}
+          </Snackbar>
         </ImageBackground>
       </KeyboardAvoidingView>
 
@@ -398,7 +409,6 @@ const styles = StyleSheet.create({
     paddingTop: Platform.OS === 'ios' ? 16 : 8,
     paddingHorizontal: 8,
   },
-  balanceBox: { backgroundColor: '#ffffff22', padding: 8, borderRadius: 8 },
   content: { alignItems: 'center', width: '100%' },
   title: { fontSize: 24, fontWeight: 'bold', marginBottom: 12 },
   coinStage: {
@@ -455,10 +465,26 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 12,
   },
-  faceRow: { flexDirection: 'row', gap: 16, marginBottom: 16 },
-  faceBtn: { borderRadius: 16, borderWidth: 2, flex: 1, marginHorizontal: 8 },
-  actionRow: { flexDirection: 'row', gap: 16, marginBottom: 16 },
-  actionBtn: { borderRadius: 16, paddingHorizontal: 20 },
+  faceRow: {
+    flexDirection: 'row',
+    gap: 16,
+    marginBottom: 16,
+  },
+  faceBtn: {
+    borderRadius: 16,
+    borderWidth: 2,
+    flex: 1,
+    marginHorizontal: 8,
+  },
+  actionRow: {
+    flexDirection: 'row',
+    gap: 16,
+    marginBottom: 16,
+  },
+  actionBtn: {
+    borderRadius: 16,
+    paddingHorizontal: 20,
+  },
   bottomRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -474,12 +500,9 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     justifyContent: 'center',
   },
-  bottomContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    height: '100%',
-    paddingHorizontal: 4,
+  bottomLabel: {
+    color: '#000',
+    fontWeight: '600',
+    fontSize: 13,
   },
-  bottomLabel: { color: 'black', fontWeight: '600', fontSize: 13 },
 });
