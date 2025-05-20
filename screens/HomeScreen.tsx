@@ -7,7 +7,6 @@ import {
   TextInput,
   TouchableOpacity,
   Dimensions,
-  Alert,
   StyleSheet,
   Platform,
   BackHandler,
@@ -23,12 +22,12 @@ import * as Haptics from 'expo-haptics';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/AppNavigator';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import UserDropdown from 'components/UserDropdown';
+import AnimatedSnackbar from 'components/AnimatedSnackbar';
 import { AuthContext } from 'context/AuthContext';
 import { SoundContext } from 'context/SoundContext';
-import apiClient from 'api/client'; // ← your axios instance
+import apiClient from 'api/client';
 
 const MIN_BET = 15;
 const { width: screenWidth } = Dimensions.get('window');
@@ -46,30 +45,42 @@ export default function HomeScreen() {
   const { userId, userToken, username } = useContext(AuthContext);
   const { bgSound } = useContext(SoundContext);
 
-  // --- Animation state ---
+  // Animation state
   const [selectedFace, setSelectedFace] = useState<'HEAD' | 'TAIL'>('HEAD');
   const [flipResult, setFlipResult] = useState<'HEAD' | 'TAIL'>('HEAD');
   const [flipping, setFlipping] = useState(false);
   const [rotation, setRotation] = useState(0);
 
-  // --- Wallet buckets ---
+  // Balances
   const [availableBalance, setAvailableBalance] = useState(0);
-  const [lockedBalance, setLockedBalance] = useState(0);
   const [pendingDelta, setPendingDelta] = useState(0);
 
-  // --- UI ---
+  // UI state
   const [selectedCountry, setSelectedCountry] = useState(countryFlags[0]);
   const [amount, setAmount] = useState(`${countryFlags[0].value}`);
 
-  // --- Sounds ---
+  // Sounds
   const [flipSound, setFlipSound] = useState<Audio.Sound | null>(null);
   const [winSound, setWinSound] = useState<Audio.Sound | null>(null);
   const [loseSound, setLoseSound] = useState<Audio.Sound | null>(null);
 
-  // --- Confetti ---
+  // Confetti
   const [showConfetti, setShowConfetti] = useState(false);
 
-  // --- Load initial balance from server ---
+  // Snackbar
+  const [snackbarVisible, setSnackbarVisible] = useState(false);
+  const [snackbarMsg, setSnackbarMsg] = useState('');
+  const [snackbarType, setSnackbarType] = useState<'success' | 'error'>('success');
+
+  // Clear snackbar after 3s
+  useEffect(() => {
+    if (snackbarVisible) {
+      const t = setTimeout(() => setSnackbarVisible(false), 3000);
+      return () => clearTimeout(t);
+    }
+  }, [snackbarVisible]);
+
+  // Fetch balances on mount
   const fetchBalance = useCallback(async () => {
     try {
       const resp = await apiClient.post(
@@ -77,12 +88,13 @@ export default function HomeScreen() {
         { userId },
         { headers: { Authorization: `Bearer ${userToken}` } }
       );
-      console.log('get balance ', resp.data);
-      // assume resp.data.balance is the user’s actual wallet
       setAvailableBalance(resp.data.walletBalance);
+      setPendingDelta(resp.data.currentBalance);
     } catch (e) {
       console.error('fetchBalance error', e);
-      Alert.alert('Error', 'Could not fetch balance');
+      setSnackbarType('error');
+      setSnackbarMsg('Could not fetch balance');
+      setSnackbarVisible(true);
     }
   }, [userId, userToken]);
 
@@ -90,15 +102,15 @@ export default function HomeScreen() {
     fetchBalance();
   }, [fetchBalance]);
 
-  // --- Load flip/win/lose sounds once ---
+  // Load SFX
   useEffect(() => {
     let fs: Audio.Sound, ws: Audio.Sound, ls: Audio.Sound;
     (async () => {
       fs = (await Audio.Sound.createAsync(require('../assets/sounds/coin-flip.mp3'))).sound;
-      setFlipSound(fs);
       ws = (await Audio.Sound.createAsync(require('../assets/sounds/win-sound.mp3'))).sound;
-      setWinSound(ws);
       ls = (await Audio.Sound.createAsync(require('../assets/sounds/lose-sound.mp3'))).sound;
+      setFlipSound(fs);
+      setWinSound(ws);
       setLoseSound(ls);
     })();
     return () => {
@@ -108,7 +120,7 @@ export default function HomeScreen() {
     };
   }, []);
 
-  // --- Duck bg & play effect ---
+  // Duck BG music and play effect
   const playEffect = useCallback(
     async (effect: Audio.Sound | null) => {
       if (!bgSound || !effect) return;
@@ -124,111 +136,82 @@ export default function HomeScreen() {
     [bgSound]
   );
 
-  // --- Android back: prompt if pending ---
+  // Prevent Android back if there’s pending
   useEffect(() => {
     const onBack = () => {
       if (pendingDelta !== 0) {
-        Alert.alert('Unsettled Bet', 'You have a pending result. Takeout now?', [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Takeout & Exit',
-            onPress: async () => {
-              await apiClient.post(
-                '/balance/takeout',
-                { userId },
-                { headers: { Authorization: `Bearer ${userToken}` } }
-              );
-              await fetchBalance();
-              setPendingDelta(0);
-              BackHandler.exitApp();
-            },
-          },
-        ]);
+        setSnackbarType('error');
+        setSnackbarMsg('Please takeout your pending balance first');
+        setSnackbarVisible(true);
         return true;
       }
       return false;
     };
     BackHandler.addEventListener('hardwareBackPress', onBack);
     return () => BackHandler.removeEventListener('hardwareBackPress', onBack);
-  }, [pendingDelta, userId, userToken, fetchBalance]);
+  }, [pendingDelta]);
 
-  // --- Flip handler (server‐backed) ---
+  // Flip
   const handleFlip = async () => {
     const bet = parseInt(amount, 10) || 0;
     if (bet < MIN_BET) {
-      return Alert.alert(`Minimum bet is ${selectedCountry.symbol}${MIN_BET}`);
+      setSnackbarType('error');
+      setSnackbarMsg(`Minimum bet is ${selectedCountry.symbol}${MIN_BET}`);
+      setSnackbarVisible(true);
+      return;
     }
-    // if (bet > availableBalance) {
-    //   return Alert.alert('Insufficient Balance');
-    // }
 
-    // 1) Lock locally for UI
-    setAvailableBalance((a) => a - bet);
-    setLockedBalance((l) => l + bet);
-
-    // 2) Play flip SFX
-    await flipSound?.replayAsync();
-
-    // 3) Haptics + spin
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-    const face = selectedFace.toLowerCase();
     setFlipping(true);
+    await flipSound?.replayAsync();
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     setRotation((r) => r + 720);
 
-    // 4) Call server
-    setTimeout(async () => {
-      try {
-        const { data } = await apiClient.post(
-          '/play/flip',
-          { userId, face, amount: bet },
-          { headers: { Authorization: `Bearer ${userToken}` } }
-        );
-        console.log('flip result', data);
-        // assume server returns { result:'HEAD'|'TAIL', balance: number, win: boolean }
-        setFlipResult(data.result.toUpperCase() as 'HEAD' | 'TAIL');
-        setAvailableBalance(data.balance);
-        setLockedBalance(0);
-        setPendingDelta((pd) => pd + (data.win ? bet : -bet));
+    try {
+      const { data } = await apiClient.post(
+        '/play/flip',
+        { userId, face: selectedFace.toLowerCase(), amount: bet },
+        { headers: { Authorization: `Bearer ${userToken}` } }
+      );
+      // update UI from API
+      setFlipResult(data.coinFlip.toUpperCase() as 'HEAD' | 'TAIL');
+      setAvailableBalance(data.walletBalance);
+      setPendingDelta(data.currentBalance);
 
-        // SFX & confetti
-        await playEffect(data.win ? winSound : loseSound);
-        if (data.win) {
-          setShowConfetti(true);
-          setTimeout(() => setShowConfetti(false), 3000);
-        }
-      } catch (e) {
-        console.error('flip error', e);
-        Alert.alert('Error', 'Could not play flip');
-        // rollback UI
-        setAvailableBalance((a) => a + bet);
-        setLockedBalance(0);
-      } finally {
-        setFlipping(false);
+      // play win/lose
+      await playEffect(data.result === 'win' ? winSound : loseSound);
+      if (data.result === 'win') {
+        setShowConfetti(true);
+        setTimeout(() => setShowConfetti(false), 3000);
       }
-    }, 800);
+    } catch (e) {
+      console.error('flip error', e);
+      setSnackbarType('error');
+      setSnackbarMsg('Could not play flip');
+      setSnackbarVisible(true);
+    } finally {
+      setFlipping(false);
+    }
   };
 
-  // --- Takeout handler (server‐backed) ---
+  // Takeout
   const handleTakeout = async () => {
-    if (pendingDelta === 0) return;
     try {
-      await apiClient.post(
+      const resp = await apiClient.post(
         '/balance/takeout',
         { userId },
         { headers: { Authorization: `Bearer ${userToken}` } }
       );
-      await fetchBalance();
-      setPendingDelta(0);
+      setAvailableBalance(resp.data.walletBalance);
+      setPendingDelta(resp.data.currentBalance);
+      setSnackbarType('success');
+      setSnackbarMsg('Balance taken out');
+      setSnackbarVisible(true);
     } catch (e) {
       console.error('takeout error', e);
-      Alert.alert('Error', 'Could not take out');
+      setSnackbarType('error');
+      setSnackbarMsg('Could not take out');
+      setSnackbarVisible(true);
     }
-  };
-
-  // --- Country switch & sanitize ---
-  const handleCountryChange = (c: (typeof countryFlags)[0]) => {
-    setSelectedCountry(c);
-    setAmount(`${c.value}`);
   };
 
   return (
@@ -244,19 +227,15 @@ export default function HomeScreen() {
             {/* Top Bar */}
             <View style={styles.topBar}>
               <View style={styles.balanceBox}>
-                <Text style={{ color: '#fff' }}>
+                <Text style={{ color: '#fff', fontWeight: '600' }}>
                   BALANCE: {selectedCountry.symbol}
                   {availableBalance.toFixed(2)}
-                </Text>
-                <Text style={{ color: '#fff', fontSize: 12, marginTop: 2 }}>
-                  Locked: {selectedCountry.symbol}
-                  {lockedBalance.toFixed(2)}
                 </Text>
               </View>
               <UserDropdown username={username ?? userId ?? ''} />
             </View>
 
-            {/* Main */}
+            {/* Main Content */}
             <View style={styles.content}>
               <Text style={[styles.title, { color: colors.text }]}>🪙 FLIP To Win</Text>
 
@@ -304,23 +283,23 @@ export default function HomeScreen() {
                 </Text>
               )}
 
-              {/* Country */}
+              {/* Country Picker */}
               <Text style={[styles.label, { color: colors.text }]}>SELECT COUNTRY</Text>
               <View style={styles.countryRow}>
                 {countryFlags.map((c) => (
-                  <TouchableOpacity key={c.code} onPress={() => handleCountryChange(c)}>
+                  <TouchableOpacity key={c.code} onPress={() => setSelectedCountry(c)}>
                     <Image
                       source={c.flag}
                       style={[
                         styles.flag,
-                        selectedCountry.code === c.code && { borderColor: colors.primary },
+                        c.code === selectedCountry.code && { borderColor: colors.primary },
                       ]}
                     />
                   </TouchableOpacity>
                 ))}
               </View>
 
-              {/* Amount */}
+              {/* Amount Input */}
               <Text style={[styles.label, { color: colors.text }]}>ENTER AMOUNT</Text>
               <TextInput
                 value={amount}
@@ -354,7 +333,7 @@ export default function HomeScreen() {
                   onPress={handleTakeout}
                   disabled={pendingDelta === 0}
                   style={styles.actionBtn}
-                  labelStyle={{ color: colors.primary }}>
+                  labelStyle={{ color: '#fff' }}>
                   Takeout
                 </Button>
                 <Button
@@ -371,7 +350,7 @@ export default function HomeScreen() {
             {/* Footer */}
             <View style={styles.bottomRow}>
               <Button
-                mode="outlined"
+                mode="contained"
                 style={styles.bottomBtn}
                 contentStyle={styles.bottomContent}
                 labelStyle={styles.bottomLabel}
@@ -379,7 +358,7 @@ export default function HomeScreen() {
                 DEPOSIT
               </Button>
               <Button
-                mode="outlined"
+                mode="contained"
                 style={styles.bottomBtn}
                 contentStyle={styles.bottomContent}
                 labelStyle={styles.bottomLabel}
@@ -387,6 +366,14 @@ export default function HomeScreen() {
                 WITHDRAW
               </Button>
             </View>
+
+            {/* Snackbar */}
+            <AnimatedSnackbar
+              visible={snackbarVisible}
+              type={snackbarType}
+              message={snackbarMsg}
+              onDismiss={() => setSnackbarVisible(false)}
+            />
           </View>
         </ImageBackground>
       </KeyboardAvoidingView>
@@ -485,8 +472,6 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 48,
     borderRadius: 14,
-    borderColor: '#FF6F91',
-    backgroundColor: '#ffffff10',
     justifyContent: 'center',
   },
   bottomContent: {
@@ -496,5 +481,5 @@ const styles = StyleSheet.create({
     height: '100%',
     paddingHorizontal: 4,
   },
-  bottomLabel: { color: '#FF6F91', fontWeight: '600', fontSize: 13 },
+  bottomLabel: { color: 'black', fontWeight: '600', fontSize: 13 },
 });
