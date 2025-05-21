@@ -1,5 +1,5 @@
 // screens/HomeScreen.tsx
-import React, { useState, useContext, useEffect, useCallback } from 'react';
+import React, { useState, useContext, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -27,7 +27,6 @@ import { AuthContext } from '../context/AuthContext';
 import { SoundContext } from '../context/SoundContext';
 import apiClient from '../api/client';
 import BetControl from '../components/BetControl';
-
 import { LinearGradient } from 'expo-linear-gradient';
 
 const MIN_BET = 15;
@@ -53,33 +52,50 @@ export default function HomeScreen() {
   const { userId, userToken, username } = useContext(AuthContext);
   const { bgSound } = useContext(SoundContext);
 
-  // animation
+  // --- Animation & flip state ---
   const [selectedFace, setSelectedFace] = useState<'HEAD' | 'TAIL'>('HEAD');
   const [flipResult, setFlipResult] = useState<'HEAD' | 'TAIL'>('HEAD');
   const [flipping, setFlipping] = useState(false);
   const [rotation, setRotation] = useState(0);
 
-  // balances
+  // --- Balances ---
   const [walletBalance, setWalletBalance] = useState(0);
   const [currentBalance, setCurrentBalance] = useState(0);
 
-  // UI
+  // --- UI state ---
   const [selectedCountry, setSelectedCountry] = useState(countryFlags[0]);
   const [amount, setAmount] = useState(`${countryFlags[0].value}`);
 
-  // sounds
+  // --- Sounds ---
   const [flipSound, setFlipSound] = useState<Audio.Sound | null>(null);
   const [winSound, setWinSound] = useState<Audio.Sound | null>(null);
   const [loseSound, setLoseSound] = useState<Audio.Sound | null>(null);
 
-  // confetti & snackbar
+  // --- Confetti & Snackbar ---
   const [showConfetti, setShowConfetti] = useState(false);
   const [snackbar, setSnackbar] = useState<{ visible: boolean; message: string }>({
     visible: false,
     message: '',
   });
 
-  // fetch balances
+  // --- Fake-simulation state ---
+  const [simulating, setSimulating] = useState(false);
+  const simInterval = useRef<NodeJS.Timeout>();
+  const flippingRef = useRef(flipping);
+
+  useEffect(() => {
+    flippingRef.current = flipping;
+  }, [flipping]);
+
+  // --- Helper: generate random 6-char ID ---
+  const genId = () => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    return Array.from({ length: 6 })
+      .map(() => chars.charAt(Math.floor(Math.random() * chars.length)))
+      .join('');
+  };
+
+  // --- Fetch balances from API ---
   const fetchBalance = useCallback(async () => {
     try {
       const resp = await apiClient.post(
@@ -93,9 +109,17 @@ export default function HomeScreen() {
       setSnackbar({ visible: true, message: 'Could not fetch balance.' });
     }
   }, [userId, userToken]);
-  useEffect(() => void fetchBalance(), [fetchBalance]);
 
-  // load sounds
+  useEffect(() => {
+    fetchBalance();
+    // start fake‐simulation timer
+    simInterval.current = setInterval(runSimulation, 30000);
+    return () => {
+      simInterval.current && clearInterval(simInterval.current);
+    };
+  }, [fetchBalance]);
+
+  // --- Load sounds once ---
   useEffect(() => {
     let fs: Audio.Sound, ws: Audio.Sound, ls: Audio.Sound;
     (async () => {
@@ -106,10 +130,14 @@ export default function HomeScreen() {
       setWinSound(ws);
       setLoseSound(ls);
     })();
-    return () => fs?.unloadAsync() && ws?.unloadAsync() && ls?.unloadAsync();
+    return () => {
+      fs?.unloadAsync();
+      ws?.unloadAsync();
+      ls?.unloadAsync();
+    };
   }, []);
 
-  // play effect
+  // --- Duck bg volume, play effect SFX ---
   const playEffect = useCallback(
     async (effect: Audio.Sound | null) => {
       if (!bgSound || !effect) return;
@@ -120,20 +148,23 @@ export default function HomeScreen() {
     [bgSound]
   );
 
-  // block back if pending
+  // --- Block Android back while pending or simulating ---
   useEffect(() => {
     const onBack = () => {
-      if (currentBalance !== 0) {
-        setSnackbar({ visible: true, message: 'Please takeout before exiting.' });
+      if (currentBalance !== 0 || simulating) {
+        setSnackbar({
+          visible: true,
+          message: simulating ? 'Please wait…' : 'Please takeout before exiting.',
+        });
         return true;
       }
       return false;
     };
     BackHandler.addEventListener('hardwareBackPress', onBack);
     return () => BackHandler.removeEventListener('hardwareBackPress', onBack);
-  }, [currentBalance]);
+  }, [currentBalance, simulating]);
 
-  // flip action
+  // --- Real flip via API ---
   const handleFlip = async () => {
     const bet = parseInt(amount, 10) || 0;
     if (bet < MIN_BET) {
@@ -171,7 +202,7 @@ export default function HomeScreen() {
     }, 800);
   };
 
-  // takeout
+  // --- Takeout via API ---
   const handleTakeout = async () => {
     if (!currentBalance) return;
     try {
@@ -187,13 +218,37 @@ export default function HomeScreen() {
     }
   };
 
-  // country switch
+  // --- Country picker handler ---
   const handleCountryChange = (c: (typeof countryFlags)[0]) => {
     setSelectedCountry(c);
     setAmount(`${c.value}`);
   };
 
-  // get coin images
+  // --- Fake simulation routine ---
+  async function runSimulation() {
+    if (flippingRef.current) return;
+    setSimulating(true);
+
+    // ◉ play flip SFX for the fake spin
+    await playEffect(flipSound);
+    // simulate spin
+    setFlipping(true);
+    setRotation((r) => r + 720);
+    await new Promise((r) => setTimeout(r, 1000));
+    setFlipping(false);
+
+    // show 5 random “XxxxxX won!” snackbars in sequence
+    for (let i = 0; i < 5; i++) {
+      setSnackbar({ visible: true, message: `${genId()} won!` });
+      await new Promise((r) => setTimeout(r, 1200));
+      setSnackbar((s) => ({ ...s, visible: false }));
+      await new Promise((r) => setTimeout(r, 200));
+    }
+
+    setSimulating(false);
+  }
+
+  // --- Select proper coin images ---
   const { head, tail } = coinImages[selectedCountry.code];
 
   return (
@@ -215,8 +270,8 @@ export default function HomeScreen() {
               <UserDropdown username={username ?? userId ?? ''} />
             </View>
 
-            {/* Main */}
-            <View style={styles.content}>
+            {/* Main content: freeze pointerEvents while simulating */}
+            <View style={styles.content} pointerEvents={simulating ? 'none' : 'auto'}>
               <Text style={[styles.title, { color: colors.text }]}>🪙 FLIP To Win</Text>
 
               {/* Coin */}
@@ -245,10 +300,7 @@ export default function HomeScreen() {
                 </View>
                 <MotiView
                   from={{ scaleX: 1.4, opacity: 0.6 }}
-                  animate={{
-                    scaleX: flipping ? 1 : 1.4,
-                    opacity: flipping ? 0.3 : 0.6,
-                  }}
+                  animate={{ scaleX: flipping ? 1 : 1.4, opacity: flipping ? 0.3 : 0.6 }}
                   transition={{ type: 'timing', duration: 1000 }}
                   style={styles.shadow}
                 />
@@ -263,8 +315,7 @@ export default function HomeScreen() {
                 </Text>
               )}
 
-              {/* Country */}
-              {/* <Text style={[styles.label, { color: colors.text }]}>SELECT COUNTRY</Text> */}
+              {/* Country picker */}
               <View style={styles.countryRow}>
                 {countryFlags.map((c) => (
                   <TouchableOpacity key={c.code} onPress={() => handleCountryChange(c)}>
@@ -272,16 +323,14 @@ export default function HomeScreen() {
                       source={c.flag}
                       style={[
                         styles.flag,
-                        c.code === selectedCountry.code && {
-                          borderColor: colors.primary,
-                        },
+                        c.code === selectedCountry.code && { borderColor: colors.primary },
                       ]}
                     />
                   </TouchableOpacity>
                 ))}
               </View>
 
-              {/* Bet Control */}
+              {/* Bet control */}
               <BetControl
                 value={parseInt(amount, 10)}
                 onChange={(v) => setAmount(String(v))}
@@ -319,52 +368,58 @@ export default function HomeScreen() {
 
               {/* Actions */}
               <View style={styles.actions}>
-                {/* glowing FLIP */}
                 <MotiView
                   from={{ shadowRadius: 5, shadowOpacity: 0.4 }}
-                  animate={{
-                    shadowRadius: [5, 20, 5],
-                    shadowOpacity: [0.4, 0.8, 0.4],
-                  }}
+                  animate={{ shadowRadius: [5, 20, 5], shadowOpacity: [0.4, 0.8, 0.4] }}
                   transition={{ loop: true, type: 'timing', duration: 2000 }}
                   style={[styles.flipGlow, { shadowColor: colors.primary }]}>
                   <Button
-                    mode="elevated"
+                    mode="contained"
                     onPress={handleFlip}
-                    disabled={flipping}
+                    disabled={flipping || simulating}
                     style={[styles.flipBtn, { backgroundColor: colors.primary }]}
-                    labelStyle={{
-                      color: '#000',
-                      fontWeight: 'bold',
-                      fontSize: 18,
-                    }}>
+                    labelStyle={{ color: '#000', fontWeight: 'bold', fontSize: 18 }}>
                     FLIP
                   </Button>
                 </MotiView>
-
-                {/* Takeout */}
                 <Button
                   mode="outlined"
                   onPress={handleTakeout}
-                  disabled={currentBalance === 0}
+                  disabled={currentBalance === 0 || simulating}
                   style={styles.takeoutBtn}
-                  labelStyle={{ color: '#fff', fontWeight: '600' }}>
+                  labelStyle={styles.takeoutLabel}>
                   Takeout
                 </Button>
               </View>
             </View>
           </View>
 
-          {/* Snackbar */}
-          <Snackbar
+          {/* Snackbars */}
+          {/* <Snackbar
             visible={snackbar.visible}
             onDismiss={() => setSnackbar((s) => ({ ...s, visible: false }))}
-            duration={3000}>
+            duration={1200}>
             {snackbar.message}
-          </Snackbar>
+          </Snackbar> */}
+
+          {snackbar.visible && (
+            <MotiView
+              from={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.8, opacity: 0 }}
+              transition={{ type: 'spring', damping: 10 }}
+              style={styles.toastContainer}>
+              <LinearGradient
+                colors={['#FF6F91', '#FF9671']}
+                start={[0, 0]}
+                end={[1, 1]}
+                style={styles.toastGradient}>
+                <Text style={styles.toastText}>{snackbar.message}</Text>
+              </LinearGradient>
+            </MotiView>
+          )}
         </ImageBackground>
       </KeyboardAvoidingView>
-
       {showConfetti && <ConfettiCannon count={300} origin={{ x: screenWidth / 2, y: 0 }} fadeOut />}
     </SafeAreaView>
   );
@@ -421,7 +476,6 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   pending: { fontSize: 16, fontWeight: '600' },
-  label: { marginBottom: 6 },
   countryRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -442,11 +496,10 @@ const styles = StyleSheet.create({
   },
   actions: {
     width: '100%',
-    // paddingHorizontal: 24,
     alignItems: 'center',
   },
   flipGlow: {
-    width: '100%',
+    width: '90%',
     borderRadius: 32,
     shadowOffset: { width: 0, height: 0 },
     marginBottom: 12,
@@ -457,7 +510,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   takeoutBtn: {
-    width: '80%',
+    width: '75%',
     height: 48,
     borderRadius: 24,
     justifyContent: 'center',
@@ -466,5 +519,29 @@ const styles = StyleSheet.create({
   takeoutLabel: {
     color: '#fff',
     fontWeight: '600',
+  },
+
+  toastContainer: {
+    position: 'absolute',
+    top: 32,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    zIndex: 10,
+  },
+  toastGradient: {
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 24,
+    shadowColor: '#000',
+    shadowOpacity: 0.2,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 6,
+  },
+  toastText: {
+    color: '#000',
+    fontWeight: '700',
+    fontSize: 16,
+    textAlign: 'center',
   },
 });
