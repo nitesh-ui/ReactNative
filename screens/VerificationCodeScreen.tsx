@@ -1,7 +1,7 @@
-// screens/VerificationCodeScreen2.tsx
+// screens/VerificationCodeScreen.tsx
+
 import React, { useState, useRef, useEffect } from 'react';
 import {
-  SafeAreaView,
   View,
   Text,
   TextInput,
@@ -9,15 +9,18 @@ import {
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
+  ImageBackground,
 } from 'react-native';
 import { useTheme } from 'react-native-paper';
+import { AnimatePresence, MotiView } from 'moti';
 import { CommonActions, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/AppNavigator';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Feather } from '@expo/vector-icons';
 
 import GradientButton from '../components/GradientButton';
 import AnimatedSnackbar from '../components/AnimatedSnackbar';
-import { MotiView, AnimatePresence } from 'moti';
 
 export default function VerificationCodeScreen() {
   const { colors } = useTheme();
@@ -81,11 +84,20 @@ export default function VerificationCodeScreen() {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <View style={styles.container}>
+    <SafeAreaView
+      style={{ flex: 1, backgroundColor: colors.background }}
+      edges={['top', 'left', 'right']}>
+      {/* Top bar */}
+      <ImageBackground source={require('../assets/bg1.jpg')} style={{ flex: 1 }} resizeMode="cover">
+        <View style={styles.topBar}>
+          <TouchableOpacity onPress={() => navigation.goBack()}>
+            <Feather name="arrow-left" size={24} color="#fff" />
+          </TouchableOpacity>
+        </View>
+
+        <KeyboardAvoidingView
+          style={{ flex: 1, padding: 24 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <MotiView
             from={{ opacity: 0, translateY: -20 }}
             animate={{ opacity: 1, translateY: 0 }}
@@ -143,24 +155,25 @@ export default function VerificationCodeScreen() {
           <GradientButton onPress={verify} loading={false}>
             Verify
           </GradientButton>
-        </View>
 
-        <AnimatedSnackbar
-          visible={snackbar.visible}
-          type={snackbar.type}
-          message={snackbar.message}
-          onDismiss={() => setSnackbar((s) => ({ ...s, visible: false }))}
-        />
-      </KeyboardAvoidingView>
+          <AnimatedSnackbar
+            visible={snackbar.visible}
+            type={snackbar.type}
+            message={snackbar.message}
+            onDismiss={() => setSnackbar((s) => ({ ...s, visible: false }))}
+          />
+        </KeyboardAvoidingView>
+      </ImageBackground>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    padding: 24,
+  topBar: {
+    width: '100%',
+    paddingTop: Platform.OS === 'ios' ? 16 : 8,
+    paddingHorizontal: 16,
+    paddingBottom: 8,
   },
   title: {
     fontSize: 24,
@@ -168,13 +181,10 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 24,
   },
-  card: {
-    padding: 16,
-    gap: 16,
-  },
   otpRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    marginBottom: 16,
   },
   otpInput: {
     width: 60,

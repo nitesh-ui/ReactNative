@@ -1,5 +1,6 @@
 // screens/Register.tsx
-import React, { useState, useContext, useEffect } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,18 +12,21 @@ import {
   StyleSheet,
   TextInput,
 } from 'react-native';
-import { useTheme, Divider } from 'react-native-paper';
+import { useTheme, Divider, Menu } from 'react-native-paper';
 import { MotiView } from 'moti';
 import { CommonActions, useNavigation } from '@react-navigation/native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Feather } from '@expo/vector-icons';
+
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/AppNavigator';
+
 import { signup } from '../api/auth';
+import { AuthContext } from '../context/AuthContext';
 import CoinLoader from '../components/CoinLoader';
 import AnimatedSnackbar from '../components/AnimatedSnackbar';
 import FloatingInput from '../components/FloatingInput';
 import GradientButton from '../components/GradientButton';
-import { Feather } from '@expo/vector-icons';
-import { Menu } from 'react-native-paper';
 
 const countryCodes = [
   { label: '🇮🇳 +91', value: '+91' },
@@ -35,6 +39,9 @@ const countryCodes = [
 export default function Register() {
   const { colors } = useTheme();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const {
+    /* no auth needed here */
+  } = React.useContext(AuthContext);
 
   const [email, setEmail] = useState('');
   const [countryCode, setCountryCode] = useState('+91');
@@ -66,6 +73,7 @@ export default function Register() {
     type: 'success' as 'success' | 'error',
   });
 
+  // auto‐hide snackbar
   useEffect(() => {
     if (snackbar.show) {
       const t = setTimeout(() => setSnackbar((s) => ({ ...s, show: false })), 3000);
@@ -108,8 +116,8 @@ export default function Register() {
 
     if (!ok) return;
 
+    setLoading(true);
     try {
-      setLoading(true);
       await signup(email.trim(), countryCode + phone, password, confirm);
       setSnackbar({ show: true, msg: 'Registered! Please log in.', type: 'success' });
       setTimeout(
@@ -134,125 +142,147 @@ export default function Register() {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1 }}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ImageBackground source={require('../assets/bg1.jpg')} style={{ flex: 1 }} resizeMode="cover">
-        <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-          {/* Header */}
-          <MotiView
-            from={{ opacity: 0, translateY: -20 }}
-            animate={{ opacity: 1, translateY: 0 }}
-            transition={{ duration: 600 }}
-            style={styles.header}>
-            <Text style={[styles.title, { color: colors.text }]}>✨ Create an Account</Text>
-          </MotiView>
-
-          {/* Form */}
-          <View style={{ gap: 16 }}>
-            <FloatingInput
-              label="Email"
-              iconName="mail"
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-              error={errors.email}
-              shake={shake.email}
-            />
-
-            {/* Phone */}
-            <View>
-              <MotiView
-                from={{ translateX: 0 }}
-                animate={{ translateX: shake.phone ? -8 : 0 }}
-                transition={{
-                  type: 'timing',
-                  duration: 80,
-                  repeat: shake.phone ? 3 : 0,
-                  repeatReverse: true,
-                }}>
-                <View
-                  style={[
-                    styles.phoneContainer,
-                    { borderColor: errors.phone ? colors.error : 'rgba(255,255,255,0.4)' },
-                  ]}>
-                  <Menu
-                    visible={menuVisible}
-                    onDismiss={closeMenu}
-                    anchor={
-                      <TouchableOpacity onPress={openMenu} style={styles.phonePrefix}>
-                        <Text style={styles.phonePrefixText}>
-                          {countryCodes.find((c) => c.value === countryCode)?.label}
-                        </Text>
-                        <Feather name="chevron-down" size={18} color="#fff" />
-                      </TouchableOpacity>
-                    }>
-                    {countryCodes.map((c) => (
-                      <Menu.Item
-                        key={c.value}
-                        onPress={() => {
-                          setCountryCode(c.value);
-                          closeMenu();
-                        }}
-                        title={c.label}
-                      />
-                    ))}
-                  </Menu>
-                  <TextInput
-                    placeholder="Phone Number"
-                    placeholderTextColor="rgba(255,255,255,0.7)"
-                    keyboardType="phone-pad"
-                    value={phone}
-                    onChangeText={setPhone}
-                    style={styles.phoneInput}
-                  />
-                </View>
-              </MotiView>
-              {errors.phone ? (
-                <Text style={[styles.error, { color: colors.error }]}>{errors.phone}</Text>
-              ) : null}
-            </View>
-
-            <FloatingInput
-              label="Password"
-              iconName="lock"
-              value={password}
-              onChangeText={setPassword}
-              secure
-              error={errors.password}
-              shake={shake.password}
-            />
-
-            <FloatingInput
-              label="Confirm Password"
-              iconName="lock"
-              value={confirm}
-              onChangeText={setConfirm}
-              secure
-              error={errors.confirm}
-              shake={shake.confirm}
-            />
-
-            <GradientButton onPress={validateAndSubmit} loading={loading}>
-              Sign Up
-            </GradientButton>
+    <SafeAreaView
+      style={{ flex: 1, backgroundColor: colors.background }}
+      edges={['top', 'left', 'right']}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <ImageBackground
+          source={require('../assets/bg1.jpg')}
+          style={{ flex: 1 }}
+          resizeMode="cover">
+          {/* Top Bar */}
+          <View style={styles.topBar}>
+            <TouchableOpacity onPress={() => navigation.goBack()}>
+              <Feather name="arrow-left" size={24} color="#fff" />
+            </TouchableOpacity>
           </View>
-        </ScrollView>
 
-        <AnimatedSnackbar
-          visible={snackbar.show}
-          type={snackbar.type}
-          message={snackbar.msg}
-          onDismiss={() => setSnackbar((s) => ({ ...s, show: false }))}
-        />
+          <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+            {/* Title */}
+            <MotiView
+              from={{ opacity: 0, translateY: -20 }}
+              animate={{ opacity: 1, translateY: 0 }}
+              transition={{ duration: 600 }}
+              style={styles.header}>
+              <Text style={[styles.title, { color: colors.text }]}>✨ Create an Account</Text>
+            </MotiView>
 
-        <CoinLoader visible={loading} />
-      </ImageBackground>
-    </KeyboardAvoidingView>
+            {/* Form */}
+            <View style={{ gap: 16 }}>
+              <FloatingInput
+                label="Email"
+                iconName="mail"
+                value={email}
+                onChangeText={setEmail}
+                keyboardType="email-address"
+                error={errors.email}
+                shake={shake.email}
+              />
+
+              {/* Phone */}
+              <View>
+                <MotiView
+                  from={{ translateX: 0 }}
+                  animate={{ translateX: shake.phone ? -8 : 0 }}
+                  transition={{
+                    type: 'timing',
+                    duration: 80,
+                    repeat: shake.phone ? 3 : 0,
+                    repeatReverse: true,
+                  }}>
+                  <View
+                    style={[
+                      styles.phoneContainer,
+                      {
+                        borderColor: errors.phone ? colors.error : 'rgba(255,255,255,0.4)',
+                      },
+                    ]}>
+                    <Menu
+                      visible={menuVisible}
+                      onDismiss={closeMenu}
+                      anchor={
+                        <TouchableOpacity onPress={openMenu} style={styles.phonePrefix}>
+                          <Text style={styles.phonePrefixText}>
+                            {countryCodes.find((c) => c.value === countryCode)?.label}
+                          </Text>
+                          <Feather name="chevron-down" size={18} color="#fff" />
+                        </TouchableOpacity>
+                      }>
+                      {countryCodes.map((c) => (
+                        <Menu.Item
+                          key={c.value}
+                          onPress={() => {
+                            setCountryCode(c.value);
+                            closeMenu();
+                          }}
+                          title={c.label}
+                        />
+                      ))}
+                    </Menu>
+                    <TextInput
+                      placeholder="Phone Number"
+                      placeholderTextColor="rgba(255,255,255,0.7)"
+                      keyboardType="phone-pad"
+                      value={phone}
+                      onChangeText={setPhone}
+                      style={styles.phoneInput}
+                    />
+                  </View>
+                </MotiView>
+                {errors.phone ? (
+                  <Text style={[styles.error, { color: colors.error }]}>{errors.phone}</Text>
+                ) : null}
+              </View>
+
+              <FloatingInput
+                label="Password"
+                iconName="lock"
+                value={password}
+                onChangeText={setPassword}
+                secure
+                error={errors.password}
+                shake={shake.password}
+              />
+
+              <FloatingInput
+                label="Confirm Password"
+                iconName="lock"
+                value={confirm}
+                onChangeText={setConfirm}
+                secure
+                error={errors.confirm}
+                shake={shake.confirm}
+              />
+
+              <GradientButton onPress={validateAndSubmit} loading={loading}>
+                Sign Up
+              </GradientButton>
+            </View>
+          </ScrollView>
+
+          <AnimatedSnackbar
+            visible={snackbar.show}
+            type={snackbar.type}
+            message={snackbar.msg}
+            onDismiss={() => setSnackbar((s) => ({ ...s, show: false }))}
+          />
+
+          <CoinLoader visible={loading} />
+        </ImageBackground>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  topBar: {
+    width: '100%',
+    paddingTop: Platform.OS === 'ios' ? 16 : 8,
+    paddingHorizontal: 16,
+    paddingBottom: 8,
+  },
   scroll: {
     flexGrow: 1,
     justifyContent: 'center',

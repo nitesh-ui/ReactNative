@@ -1,18 +1,21 @@
-// screens/ForgotPasswordScreen2.tsx
+// screens/ForgotPasswordScreen.tsx
+
 import React, { useState, useEffect } from 'react';
 import {
-  SafeAreaView,
   View,
   Text,
   KeyboardAvoidingView,
   Platform,
   ImageBackground,
   StyleSheet,
+  TouchableOpacity,
 } from 'react-native';
 import { useTheme } from 'react-native-paper';
 import { CommonActions, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/AppNavigator';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Feather } from '@expo/vector-icons';
 
 import FloatingInput from '../components/FloatingInput';
 import GradientButton from '../components/GradientButton';
@@ -33,7 +36,7 @@ export default function ForgotPasswordScreen() {
     type: 'success' | 'error';
   }>({ visible: false, message: '', type: 'success' });
 
-  // auto-hide snackbar
+  // auto-hide
   useEffect(() => {
     if (snackbar.visible) {
       const t = setTimeout(() => setSnackbar((s) => ({ ...s, visible: false })), 3000);
@@ -48,11 +51,9 @@ export default function ForgotPasswordScreen() {
       setTimeout(() => setShake(false), 500);
       return;
     }
-
     setError('');
     setLoading(true);
-
-    // replace with your real API call
+    // fake API
     setTimeout(() => {
       setLoading(false);
       setSnackbar({ visible: true, message: 'Code sent!', type: 'success' });
@@ -61,8 +62,17 @@ export default function ForgotPasswordScreen() {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+    <SafeAreaView
+      style={{ flex: 1, backgroundColor: colors.background }}
+      edges={['top', 'left', 'right']}>
       <ImageBackground source={require('../assets/bg1.jpg')} style={{ flex: 1 }} resizeMode="cover">
+        {/* Top bar with back button */}
+        <View style={styles.topBar}>
+          <TouchableOpacity onPress={() => navigation.goBack()}>
+            <Feather name="arrow-left" size={24} color="#fff" />
+          </TouchableOpacity>
+        </View>
+
         <KeyboardAvoidingView
           style={{ flex: 1 }}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -102,6 +112,12 @@ export default function ForgotPasswordScreen() {
 }
 
 const styles = StyleSheet.create({
+  topBar: {
+    width: '100%',
+    paddingTop: Platform.OS === 'ios' ? 16 : 8,
+    paddingHorizontal: 16,
+    paddingBottom: 8,
+  },
   container: {
     flex: 1,
     justifyContent: 'center',
@@ -112,9 +128,5 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     textAlign: 'center',
     marginBottom: 24,
-  },
-  card: {
-    padding: 16,
-    gap: 16,
   },
 });
