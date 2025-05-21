@@ -29,7 +29,7 @@ import apiClient from '../api/client';
 import BetControl from '../components/BetControl';
 import { LinearGradient } from 'expo-linear-gradient';
 
-const MIN_BET = 15;
+const MIN_BET = 10;
 const { width: screenWidth } = Dimensions.get('window');
 
 const coinImages: Record<string, { head: any; tail: any }> = {
@@ -272,7 +272,7 @@ export default function HomeScreen() {
 
             {/* Main content: freeze pointerEvents while simulating */}
             <View style={styles.content} pointerEvents={simulating ? 'none' : 'auto'}>
-              <Text style={[styles.title, { color: colors.text }]}>🪙 FLIP To Win</Text>
+              <Text style={[styles.title, { color: colors.text }]}>🪙 Flip To Win</Text>
 
               {/* Coin */}
               <View style={{ marginVertical: 16 }}>
@@ -491,7 +491,7 @@ const styles = StyleSheet.create({
   faceBtn: {
     width: 120,
     height: 48,
-    borderRadius: 24,
+    borderRadius: 8,
     justifyContent: 'center',
   },
   actions: {
@@ -500,19 +500,19 @@ const styles = StyleSheet.create({
   },
   flipGlow: {
     width: '90%',
-    borderRadius: 32,
+    borderRadius: 8,
     shadowOffset: { width: 0, height: 0 },
     marginBottom: 12,
   },
   flipBtn: {
-    height: 64,
-    borderRadius: 32,
+    height: 48,
+    borderRadius: 8,
     justifyContent: 'center',
   },
   takeoutBtn: {
-    width: '75%',
+    width: '90%',
     height: 48,
-    borderRadius: 24,
+    borderRadius: 8,
     justifyContent: 'center',
     borderColor: '#fff',
   },

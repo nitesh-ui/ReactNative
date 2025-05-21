@@ -102,7 +102,7 @@ export default function Login() {
                 transition={{ duration: 600 }}
                 style={{ alignItems: 'center', marginBottom: 32 }}>
                 <Text style={{ fontSize: 28, fontWeight: 'bold', color: '#fff' }}>
-                  🎲 Welcome to Toss
+                🪙 Welcome to Flip
                 </Text>
               </MotiView>
 
