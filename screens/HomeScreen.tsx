@@ -4,10 +4,8 @@ import {
   View,
   Text,
   Image,
-  TextInput,
   TouchableOpacity,
   Dimensions,
-  Alert,
   StyleSheet,
   Platform,
   BackHandler,
@@ -15,7 +13,7 @@ import {
   ImageBackground,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Button, useTheme, Snackbar } from 'react-native-paper';
+import { useTheme, Snackbar, Button } from 'react-native-paper';
 import { MotiView } from 'moti';
 import ConfettiCannon from 'react-native-confetti-cannon';
 import { Audio } from 'expo-av';
@@ -24,32 +22,22 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/AppNavigator';
 
-import UserDropdown from 'components/UserDropdown';
-import { AuthContext } from 'context/AuthContext';
-import { SoundContext } from 'context/SoundContext';
-import apiClient from 'api/client';
+import UserDropdown from '../components/UserDropdown';
+import { AuthContext } from '../context/AuthContext';
+import { SoundContext } from '../context/SoundContext';
+import apiClient from '../api/client';
+import BetControl from '../components/BetControl';
+
+import { LinearGradient } from 'expo-linear-gradient';
 
 const MIN_BET = 15;
 const { width: screenWidth } = Dimensions.get('window');
 
-// map country code → head/tail images
 const coinImages: Record<string, { head: any; tail: any }> = {
-  IN: {
-    head: require('../assets/in-head.png'),
-    tail: require('../assets/in-tail.png'),
-  },
-  US: {
-    head: require('../assets/us-head.png'),
-    tail: require('../assets/us-tail.png'),
-  },
-  CH: {
-    head: require('../assets/ch-head.png'),
-    tail: require('../assets/ch-tail.png'),
-  },
-  JP: {
-    head: require('../assets/jp-head.png'),
-    tail: require('../assets/jp-tail.png'),
-  },
+  IN: { head: require('../assets/in-head.png'), tail: require('../assets/in-tail.png') },
+  US: { head: require('../assets/us-head.png'), tail: require('../assets/us-tail.png') },
+  CH: { head: require('../assets/ch-head.png'), tail: require('../assets/ch-tail.png') },
+  JP: { head: require('../assets/jp-head.png'), tail: require('../assets/jp-tail.png') },
 };
 
 const countryFlags = [
@@ -65,35 +53,33 @@ export default function HomeScreen() {
   const { userId, userToken, username } = useContext(AuthContext);
   const { bgSound } = useContext(SoundContext);
 
-  // Animation
+  // animation
   const [selectedFace, setSelectedFace] = useState<'HEAD' | 'TAIL'>('HEAD');
   const [flipResult, setFlipResult] = useState<'HEAD' | 'TAIL'>('HEAD');
   const [flipping, setFlipping] = useState(false);
   const [rotation, setRotation] = useState(0);
 
-  // Balances
+  // balances
   const [walletBalance, setWalletBalance] = useState(0);
   const [currentBalance, setCurrentBalance] = useState(0);
 
-  // UI state
+  // UI
   const [selectedCountry, setSelectedCountry] = useState(countryFlags[0]);
   const [amount, setAmount] = useState(`${countryFlags[0].value}`);
 
-  // Sounds
+  // sounds
   const [flipSound, setFlipSound] = useState<Audio.Sound | null>(null);
   const [winSound, setWinSound] = useState<Audio.Sound | null>(null);
   const [loseSound, setLoseSound] = useState<Audio.Sound | null>(null);
 
-  // Confetti
+  // confetti & snackbar
   const [showConfetti, setShowConfetti] = useState(false);
-
-  // Snackbar
   const [snackbar, setSnackbar] = useState<{ visible: boolean; message: string }>({
     visible: false,
     message: '',
   });
 
-  // Load initial wallet + current balances
+  // fetch balances
   const fetchBalance = useCallback(async () => {
     try {
       const resp = await apiClient.post(
@@ -103,50 +89,38 @@ export default function HomeScreen() {
       );
       setWalletBalance(resp.data.walletBalance);
       setCurrentBalance(resp.data.currentBalance);
-    } catch (e) {
+    } catch {
       setSnackbar({ visible: true, message: 'Could not fetch balance.' });
     }
   }, [userId, userToken]);
+  useEffect(() => void fetchBalance(), [fetchBalance]);
 
-  useEffect(() => {
-    fetchBalance();
-  }, [fetchBalance]);
-
-  // Load sounds
+  // load sounds
   useEffect(() => {
     let fs: Audio.Sound, ws: Audio.Sound, ls: Audio.Sound;
     (async () => {
       fs = (await Audio.Sound.createAsync(require('../assets/sounds/coin-flip.mp3'))).sound;
-      setFlipSound(fs);
       ws = (await Audio.Sound.createAsync(require('../assets/sounds/win-sound.mp3'))).sound;
-      setWinSound(ws);
       ls = (await Audio.Sound.createAsync(require('../assets/sounds/lose-sound.mp3'))).sound;
+      setFlipSound(fs);
+      setWinSound(ws);
       setLoseSound(ls);
     })();
-    return () => {
-      fs?.unloadAsync();
-      ws?.unloadAsync();
-      ls?.unloadAsync();
-    };
+    return () => fs?.unloadAsync() && ws?.unloadAsync() && ls?.unloadAsync();
   }, []);
 
-  // Duck bg + play effect
+  // play effect
   const playEffect = useCallback(
     async (effect: Audio.Sound | null) => {
       if (!bgSound || !effect) return;
       await bgSound.setVolumeAsync(0.2);
-      effect.setOnPlaybackStatusUpdate((status) => {
-        if (status.didJustFinish) {
-          bgSound.setVolumeAsync(1.0);
-          effect.setOnPlaybackStatusUpdate(null);
-        }
-      });
+      effect.setOnPlaybackStatusUpdate((st) => st.didJustFinish && bgSound.setVolumeAsync(1.0));
       await effect.replayAsync();
     },
     [bgSound]
   );
 
-  // Android back with pending currentBalance
+  // block back if pending
   useEffect(() => {
     const onBack = () => {
       if (currentBalance !== 0) {
@@ -159,7 +133,7 @@ export default function HomeScreen() {
     return () => BackHandler.removeEventListener('hardwareBackPress', onBack);
   }, [currentBalance]);
 
-  // Flip
+  // flip action
   const handleFlip = async () => {
     const bet = parseInt(amount, 10) || 0;
     if (bet < MIN_BET) {
@@ -168,8 +142,6 @@ export default function HomeScreen() {
         message: `Minimum bet is ${selectedCountry.symbol}${MIN_BET}`,
       });
     }
-
-    // Play flip SFX + spin
     await flipSound?.replayAsync();
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     setFlipping(true);
@@ -182,19 +154,16 @@ export default function HomeScreen() {
           { userId, face: selectedFace.toLowerCase(), amount: bet },
           { headers: { Authorization: `Bearer ${userToken}` } }
         );
-        // API returns { result, coinFlip, currentBalance, walletBalance, totalBalance }
         setFlipResult(data.coinFlip.toUpperCase());
         setCurrentBalance(data.currentBalance);
         setWalletBalance(data.walletBalance);
-
-        // win/lose SFX + confetti
         const won = data.result === 'win';
         await playEffect(won ? winSound : loseSound);
         if (won) {
           setShowConfetti(true);
           setTimeout(() => setShowConfetti(false), 3000);
         }
-      } catch (e) {
+      } catch {
         setSnackbar({ visible: true, message: 'Could not play flip.' });
       } finally {
         setFlipping(false);
@@ -202,9 +171,9 @@ export default function HomeScreen() {
     }, 800);
   };
 
-  // Takeout
+  // takeout
   const handleTakeout = async () => {
-    if (currentBalance === 0) return;
+    if (!currentBalance) return;
     try {
       const { data } = await apiClient.post(
         '/balance/takeout',
@@ -213,22 +182,19 @@ export default function HomeScreen() {
       );
       setWalletBalance(data.walletBalance);
       setCurrentBalance(data.currentBalance);
-    } catch (e) {
+    } catch {
       setSnackbar({ visible: true, message: 'Could not take out.' });
     }
   };
 
-  // Change country
+  // country switch
   const handleCountryChange = (c: (typeof countryFlags)[0]) => {
     setSelectedCountry(c);
     setAmount(`${c.value}`);
   };
 
-  // choose coin image based on selectedCountry.code
-  const { head, tail } = coinImages[selectedCountry.code] || {
-    head: require('../assets/head.png'),
-    tail: require('../assets/tail.png'),
-  };
+  // get coin images
+  const { head, tail } = coinImages[selectedCountry.code];
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top', 'bottom']}>
@@ -257,7 +223,7 @@ export default function HomeScreen() {
               <View style={{ marginVertical: 16 }}>
                 <View style={styles.coinStage}>
                   <MotiView
-                    from={{ rotateX: '0deg', translateY: 0 }}
+                    from={{ rotateX: '0deg' }}
                     animate={{
                       rotateX: flipResult === 'HEAD' ? `${rotation}deg` : `${rotation + 180}deg`,
                       translateY: flipping ? -80 : 0,
@@ -267,7 +233,7 @@ export default function HomeScreen() {
                     <Image source={head} style={styles.coinImage} />
                   </MotiView>
                   <MotiView
-                    from={{ rotateX: '180deg', translateY: 0 }}
+                    from={{ rotateX: '180deg' }}
                     animate={{
                       rotateX: flipResult === 'TAIL' ? `${rotation}deg` : `${rotation + 180}deg`,
                       translateY: flipping ? -40 : 0,
@@ -288,7 +254,7 @@ export default function HomeScreen() {
                 />
               </View>
 
-              {/* Current (pending) Balance */}
+              {/* Pending */}
               {currentBalance !== 0 && (
                 <Text style={[styles.pending, { color: currentBalance > 0 ? '#0f0' : '#f55' }]}>
                   {currentBalance > 0 ? '+' : ''}
@@ -297,8 +263,8 @@ export default function HomeScreen() {
                 </Text>
               )}
 
-              {/* Country Picker */}
-              <Text style={[styles.label, { color: colors.text }]}>SELECT COUNTRY</Text>
+              {/* Country */}
+              {/* <Text style={[styles.label, { color: colors.text }]}>SELECT COUNTRY</Text> */}
               <View style={styles.countryRow}>
                 {countryFlags.map((c) => (
                   <TouchableOpacity key={c.code} onPress={() => handleCountryChange(c)}>
@@ -306,80 +272,90 @@ export default function HomeScreen() {
                       source={c.flag}
                       style={[
                         styles.flag,
-                        c.code === selectedCountry.code && { borderColor: colors.primary },
+                        c.code === selectedCountry.code && {
+                          borderColor: colors.primary,
+                        },
                       ]}
                     />
                   </TouchableOpacity>
                 ))}
               </View>
 
-              {/* Amount Input */}
-              <Text style={[styles.label, { color: colors.text }]}>ENTER AMOUNT</Text>
-              <TextInput
-                value={amount}
-                onChangeText={(t) => setAmount(t.replace(/[^0-9]/g, ''))}
-                keyboardType="numeric"
-                style={styles.amountInput}
+              {/* Bet Control */}
+              <BetControl
+                value={parseInt(amount, 10)}
+                onChange={(v) => setAmount(String(v))}
+                min={MIN_BET}
+                max={walletBalance}
+                step={MIN_BET}
               />
 
               {/* HEAD / TAIL */}
               <View style={styles.faceRow}>
-                <Button
-                  mode={selectedFace === 'HEAD' ? 'contained' : 'outlined'}
-                  onPress={() => setSelectedFace('HEAD')}
-                  style={[styles.faceBtn, selectedFace === 'HEAD' && { backgroundColor: 'red' }]}
-                  labelStyle={{ color: selectedFace === 'HEAD' ? '#fff' : colors.text }}>
-                  HEAD
-                </Button>
-                <Button
-                  mode={selectedFace === 'TAIL' ? 'contained' : 'outlined'}
-                  onPress={() => setSelectedFace('TAIL')}
-                  style={[styles.faceBtn, selectedFace === 'TAIL' && { backgroundColor: 'green' }]}
-                  labelStyle={{ color: selectedFace === 'TAIL' ? '#fff' : colors.text }}>
-                  TAIL
-                </Button>
+                {(['HEAD', 'TAIL'] as const).map((face) => (
+                  <MotiView
+                    key={face}
+                    from={{ scale: 1 }}
+                    animate={{ scale: selectedFace === face ? 1.1 : 1 }}
+                    transition={{ type: 'spring', damping: 10 }}>
+                    <Button
+                      mode={selectedFace === face ? 'contained' : 'outlined'}
+                      onPress={() => setSelectedFace(face)}
+                      style={[
+                        styles.faceBtn,
+                        selectedFace === face && {
+                          backgroundColor: face === 'HEAD' ? '#FFC107' : '#03DAC6',
+                        },
+                      ]}
+                      labelStyle={{
+                        color: selectedFace === face ? '#000' : colors.text,
+                        fontWeight: '700',
+                      }}>
+                      {face}
+                    </Button>
+                  </MotiView>
+                ))}
               </View>
 
               {/* Actions */}
-              <View style={styles.actionRow}>
+              <View style={styles.actions}>
+                {/* glowing FLIP */}
+                <MotiView
+                  from={{ shadowRadius: 5, shadowOpacity: 0.4 }}
+                  animate={{
+                    shadowRadius: [5, 20, 5],
+                    shadowOpacity: [0.4, 0.8, 0.4],
+                  }}
+                  transition={{ loop: true, type: 'timing', duration: 2000 }}
+                  style={[styles.flipGlow, { shadowColor: colors.primary }]}>
+                  <Button
+                    mode="elevated"
+                    onPress={handleFlip}
+                    disabled={flipping}
+                    style={[styles.flipBtn, { backgroundColor: colors.primary }]}
+                    labelStyle={{
+                      color: '#000',
+                      fontWeight: 'bold',
+                      fontSize: 18,
+                    }}>
+                    FLIP
+                  </Button>
+                </MotiView>
+
+                {/* Takeout */}
                 <Button
                   mode="outlined"
                   onPress={handleTakeout}
                   disabled={currentBalance === 0}
-                  style={styles.actionBtn}
-                  labelStyle={{ color: '#fff' }}>
+                  style={styles.takeoutBtn}
+                  labelStyle={{ color: '#fff', fontWeight: '600' }}>
                   Takeout
-                </Button>
-                <Button
-                  mode="contained"
-                  onPress={handleFlip}
-                  disabled={flipping}
-                  style={[styles.actionBtn, { backgroundColor: colors.primary }]}
-                  labelStyle={{ color: '#000', fontWeight: 'bold' }}>
-                  FLIP
                 </Button>
               </View>
             </View>
-
-            {/* Footer */}
-            <View style={styles.bottomRow}>
-              <Button
-                mode="contained"
-                onPress={() => navigation.navigate('DepositScreen')}
-                style={styles.bottomBtn}
-                labelStyle={styles.bottomLabel}>
-                DEPOSIT
-              </Button>
-              <Button
-                mode="contained"
-                onPress={() => navigation.navigate('WithdrawlScreen')}
-                style={styles.bottomBtn}
-                labelStyle={styles.bottomLabel}>
-                WITHDRAW
-              </Button>
-            </View>
           </View>
 
+          {/* Snackbar */}
           <Snackbar
             visible={snackbar.visible}
             onDismiss={() => setSnackbar((s) => ({ ...s, visible: false }))}
@@ -397,8 +373,6 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'space-between',
-    alignItems: 'center',
     paddingHorizontal: 16,
   },
   topBar: {
@@ -409,12 +383,16 @@ const styles = StyleSheet.create({
     paddingTop: Platform.OS === 'ios' ? 16 : 8,
     paddingHorizontal: 8,
   },
-  content: { alignItems: 'center', width: '100%' },
-  title: { fontSize: 24, fontWeight: 'bold', marginBottom: 12 },
+  content: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'space-evenly',
+  },
+  title: { fontSize: 24, fontWeight: 'bold' },
   coinStage: {
-    width: 280,
-    height: 280,
-    borderRadius: 140,
+    width: 250,
+    height: 250,
+    borderRadius: 125,
     perspective: 1000,
     position: 'relative',
   },
@@ -423,86 +401,70 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     backfaceVisibility: 'hidden',
-    zIndex: 1,
   },
   backface: { zIndex: 0 },
   coinImage: {
     width: '100%',
     height: '100%',
-    borderRadius: 140,
+    borderRadius: 125,
     shadowColor: '#FFD700',
     shadowOpacity: 0.5,
     shadowRadius: 20,
-    shadowOffset: { width: 0, height: 0 },
   },
   shadow: {
     position: 'absolute',
     top: '100%',
-    width: 160,
-    height: 12,
+    width: 140,
+    height: 10,
     backgroundColor: '#00000040',
     borderRadius: 10,
     alignSelf: 'center',
   },
-  pending: { fontSize: 16, fontWeight: '600', marginBottom: 12 },
+  pending: { fontSize: 16, fontWeight: '600' },
   label: { marginBottom: 6 },
   countryRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     width: '100%',
-    flexWrap: 'wrap',
-    rowGap: 8,
-    columnGap: 4,
-    marginBottom: 12,
   },
   flag: { width: 60, height: 40, borderWidth: 2, borderColor: 'transparent' },
-  amountInput: {
-    backgroundColor: 'white',
-    borderRadius: 10,
-    padding: 12,
-    fontSize: 18,
-    width: 200,
-    textAlign: 'center',
-    marginBottom: 12,
-  },
   faceRow: {
     flexDirection: 'row',
-    gap: 16,
-    marginBottom: 16,
+    width: '100%',
+    justifyContent: 'space-between',
+    marginVertical: 12,
   },
   faceBtn: {
-    borderRadius: 16,
-    borderWidth: 2,
-    flex: 1,
-    marginHorizontal: 8,
-  },
-  actionRow: {
-    flexDirection: 'row',
-    gap: 16,
-    marginBottom: 16,
-  },
-  actionBtn: {
-    borderRadius: 16,
-    paddingHorizontal: 20,
-  },
-  bottomRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    width: '100%',
-    marginTop: 12,
-    marginBottom: Platform.OS === 'ios' ? 16 : 8,
-    gap: 8,
-  },
-  bottomBtn: {
-    flex: 1,
+    width: 120,
     height: 48,
-    borderRadius: 14,
+    borderRadius: 24,
     justifyContent: 'center',
   },
-  bottomLabel: {
-    color: '#000',
+  actions: {
+    width: '100%',
+    // paddingHorizontal: 24,
+    alignItems: 'center',
+  },
+  flipGlow: {
+    width: '100%',
+    borderRadius: 32,
+    shadowOffset: { width: 0, height: 0 },
+    marginBottom: 12,
+  },
+  flipBtn: {
+    height: 64,
+    borderRadius: 32,
+    justifyContent: 'center',
+  },
+  takeoutBtn: {
+    width: '80%',
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    borderColor: '#fff',
+  },
+  takeoutLabel: {
+    color: '#fff',
     fontWeight: '600',
-    fontSize: 13,
   },
 });

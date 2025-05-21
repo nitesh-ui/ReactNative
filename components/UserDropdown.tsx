@@ -1,8 +1,6 @@
-// components/UserDropdown.tsx
-
 import React, { useState, useContext } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
-import { Menu } from 'react-native-paper';
+import { Menu, Divider } from 'react-native-paper';
 import { useNavigation, CommonActions } from '@react-navigation/native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { AuthContext } from 'context/AuthContext';
@@ -20,11 +18,20 @@ export default function UserDropdown({ username = 'USER9801' }) {
     navigation.navigate('MyAccount');
   };
 
+  const handleDeposit = () => {
+    closeMenu();
+    navigation.navigate('DepositScreen');
+  };
+
+  const handleWithdraw = () => {
+    closeMenu();
+    navigation.navigate('WithdrawlScreen');
+  };
+
   const handleLogout = async () => {
     closeMenu();
     try {
       await logout();
-      // reset the nav stack to Login
       navigation.dispatch(
         CommonActions.reset({
           index: 0,
@@ -33,7 +40,7 @@ export default function UserDropdown({ username = 'USER9801' }) {
       );
     } catch (e) {
       Alert.alert('Logout failed', 'Please try again.');
-      console.error('Logout error', e);
+      console.error(e);
     }
   };
 
@@ -55,6 +62,18 @@ export default function UserDropdown({ username = 'USER9801' }) {
           <Text style={styles.itemText}>My Account</Text>
         </TouchableOpacity>
 
+        <TouchableOpacity style={styles.item} onPress={handleDeposit}>
+          <MaterialIcons name="account-balance" size={20} color="#fff" />
+          <Text style={styles.itemText}>Deposit</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.item} onPress={handleWithdraw}>
+          <MaterialIcons name="money-off" size={20} color="#fff" />
+          <Text style={styles.itemText}>Withdraw</Text>
+        </TouchableOpacity>
+
+        <Divider style={styles.divider} />
+
         <TouchableOpacity style={styles.item} onPress={handleLogout}>
           <MaterialIcons name="logout" size={20} color="#fff" />
           <Text style={styles.itemText}>Logout</Text>
@@ -65,9 +84,7 @@ export default function UserDropdown({ username = 'USER9801' }) {
 }
 
 const styles = StyleSheet.create({
-  wrapper: {
-    zIndex: 10,
-  },
+  wrapper: { zIndex: 10 },
   anchor: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -99,5 +116,9 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 15,
     marginLeft: 12,
+  },
+  divider: {
+    backgroundColor: '#444',
+    marginVertical: 4,
   },
 });
