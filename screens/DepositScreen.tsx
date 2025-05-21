@@ -1,5 +1,5 @@
 // screens/DepositScreen.tsx
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
 import {
   View,
   Text,
@@ -10,19 +10,31 @@ import {
   ScrollView,
   StyleSheet,
   ImageBackground,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
-import { useTheme } from 'react-native-paper';
+import { useTheme, Divider, Snackbar } from 'react-native-paper';
+import { MaterialIcons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
 import UserDropdown from '../components/UserDropdown';
+import { AuthContext } from '../context/AuthContext';
 import GradientButton from '../components/GradientButton';
 
 export default function DepositScreen() {
   const { colors } = useTheme();
+  const navigation = useNavigation();
+  const { userId } = useContext(AuthContext);
+
   const [image, setImage] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [snackbar, setSnackbar] = useState<{ visible: boolean; message: string }>({
+    visible: false,
+    message: '',
+  });
 
   const pickImage = async () => {
-    let result = await ImagePicker.launchImageLibraryAsync({
+    const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       quality: 0.8,
@@ -32,16 +44,48 @@ export default function DepositScreen() {
     }
   };
 
+  const handleSubmit = async () => {
+    if (!image) return;
+    setLoading(true);
+    const form = new FormData();
+    form.append('userID', userId);
+    form.append('paymentProof', {
+      uri: image,
+      name: 'receipt.jpg',
+      type: 'image/jpeg',
+    } as any);
+
+    try {
+      const resp = await fetch('https://ftbtest1.onrender.com/api/deposit/request', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+        body: form,
+      });
+      if (!resp.ok) throw new Error(`Status ${resp.status}`);
+      setSnackbar({ visible: true, message: 'Deposit proof submitted!' });
+      setImage(null);
+    } catch (e) {
+      console.error(e);
+      setSnackbar({ visible: true, message: 'Submission failed. Please try again.' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <ImageBackground
         source={require('../assets/bg1.jpg')}
         style={styles.background}
         resizeMode="cover">
-        {/* header */}
+        {/* Header with Back + Dropdown */}
         <View style={styles.header}>
-          <View />
-          <UserDropdown username="USER9801" />
+          <TouchableOpacity onPress={() => navigation.goBack()}>
+            <MaterialIcons name="arrow-back" size={24} color="#fff" />
+          </TouchableOpacity>
+          <UserDropdown username={userId || 'USER'} />
         </View>
 
         <KeyboardAvoidingView
@@ -51,13 +95,15 @@ export default function DepositScreen() {
             {/* QR + UPI */}
             <View style={styles.qrBlock}>
               <Image source={require('../assets/qr-placeholder.png')} style={styles.qrImage} />
-              <Text style={[styles.upiText, { color: colors.text }]}>UPI ID: user9801@upi</Text>
+              <Text style={[styles.upiText, { color: colors.text }]}>UPI ID: {userId}@upi</Text>
             </View>
+
+            <Divider style={styles.divider} />
 
             {/* Screenshot uploader */}
             <View style={styles.uploadBlock}>
               <Text style={[styles.uploadLabel, { color: colors.text }]}>
-                Attach Screenshot of Payment (JPG, PNG)
+                Attach Screenshot of Payment
               </Text>
               {image ? (
                 <Image source={{ uri: image }} style={styles.previewImage} />
@@ -73,13 +119,20 @@ export default function DepositScreen() {
 
             {/* Submit */}
             <GradientButton
-              onPress={() => alert('Deposit proof submitted!')}
-              disabled={!image}
+              onPress={handleSubmit}
+              disabled={!image || loading}
               style={styles.submitButton}>
-              Submit Deposit Proof
+              {loading ? 'Submitting…' : 'Submit Deposit Proof'}
             </GradientButton>
           </ScrollView>
         </KeyboardAvoidingView>
+
+        <Snackbar
+          visible={snackbar.visible}
+          onDismiss={() => setSnackbar((s) => ({ ...s, visible: false }))}
+          duration={3000}>
+          {snackbar.message}
+        </Snackbar>
       </ImageBackground>
     </SafeAreaView>
   );
@@ -91,9 +144,9 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   header: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     padding: 16,
-    backgroundColor: 'transparent',
   },
   scroll: {
     flexGrow: 1,
@@ -101,26 +154,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 32,
   },
-  card: {
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    borderRadius: 20,
-    borderWidth: 1,
-    padding: 24,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
+  divider: {
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    marginVertical: 16,
   },
   qrBlock: {
     alignItems: 'center',
     marginBottom: 24,
   },
   qrImage: {
-    width: 200,
-    height: 200,
+    width: '60%',
+    aspectRatio: 1,
     borderRadius: 12,
     borderWidth: 1,
+    height: 200,
     borderColor: '#ccc',
   },
   upiText: {
@@ -139,12 +186,13 @@ const styles = StyleSheet.create({
   },
   previewImage: {
     width: '100%',
-    height: 180,
+    aspectRatio: 1.5,
     borderRadius: 12,
     marginBottom: 8,
   },
   dashedBox: {
-    height: 180,
+    width: '100%',
+    aspectRatio: 1.5,
     borderRadius: 12,
     borderWidth: 2,
     borderColor: '#aaa',
@@ -165,10 +213,5 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     height: 48,
     justifyContent: 'center',
-  },
-  upiText: {
-    marginTop: 12,
-    fontSize: 16,
-    fontWeight: '600',
   },
 });

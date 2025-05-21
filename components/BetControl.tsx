@@ -154,8 +154,8 @@ const styles = StyleSheet.create({
   },
   label: {
     marginBottom: 8,
-    fontSize: 14,
-    fontWeight: '700',
+    fontSize: 25,
+    fontWeight: '900',
     letterSpacing: 1,
     textTransform: 'uppercase',
   },

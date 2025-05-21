@@ -1,32 +1,35 @@
-// screens/WithdrawalScreen2.tsx
+// screens/WithdrawalScreen.tsx
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import {
   View,
   Text,
+  TouchableOpacity,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
   SafeAreaView,
   StyleSheet,
+  ImageBackground,
 } from 'react-native';
-import { useTheme } from 'react-native-paper';
+import { useTheme, Button } from 'react-native-paper';
 import { MotiView } from 'moti';
-import { CommonActions, useNavigation } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/AppNavigator';
-import GlassCard from '../components/GlassCard';
+import { Feather } from '@expo/vector-icons';
+
+import { AuthContext } from '../context/AuthContext';
 import FloatingInput from '../components/FloatingInput';
 import GradientButton from '../components/GradientButton';
 import AnimatedSnackbar from '../components/AnimatedSnackbar';
 import CoinLoader from '../components/CoinLoader';
 import UserDropdown from '../components/UserDropdown';
-import { Feather } from '@expo/vector-icons';
-import { ImageBackground } from 'react-native';
 
-export default function WithdrawalScreen2() {
+export default function WithdrawalScreen() {
   const { colors } = useTheme();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const { userId, username } = useContext(AuthContext);
 
   // form state
   const [fields, setFields] = useState({
@@ -38,19 +41,17 @@ export default function WithdrawalScreen2() {
     amount: '',
     upi: '',
   });
-
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [shake, setShake] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(false);
   const [successAnim, setSuccessAnim] = useState(false);
+  const [snackbar, setSnackbar] = useState<{
+    visible: boolean;
+    message: string;
+    type: 'success' | 'error';
+  }>({ visible: false, message: '', type: 'success' });
 
-  const [snackbar, setSnackbar] = useState({
-    visible: false,
-    message: '',
-    type: 'success' as 'success' | 'error',
-  });
-
-  // auto-hide snackbar
+  // auto‐hide
   useEffect(() => {
     if (snackbar.visible) {
       const t = setTimeout(() => setSnackbar((s) => ({ ...s, visible: false })), 3000);
@@ -92,25 +93,39 @@ export default function WithdrawalScreen2() {
       e.amount = 'Invalid';
       s.amount = true;
     }
-    // UPI is optional, no validation
+    // UPI optional
 
     setErrors(e);
     setShake(s);
-    // clear shakes
     setTimeout(() => setShake({}), 500);
-
     return Object.keys(e).length === 0;
   };
 
   const handleSubmit = async () => {
     if (!validate()) return;
     setLoading(true);
+
     try {
-      // replace with your API call
-      await new Promise((res) => setTimeout(res, 1500));
+      const resp = await fetch('https://ftbtest1.onrender.com/api/withdraw/request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId,
+          name: fields.name,
+          bankName: fields.bank,
+          ifscCode: fields.ifsc,
+          accountNumber: fields.account,
+          confirmAccountNumber: fields.confirmAccount,
+          withdrawalAmount: Number(fields.amount),
+          upiId: fields.upi || undefined,
+        }),
+      });
+      const json = await resp.json();
+      if (!resp.ok) throw new Error(json.msg || resp.statusText);
 
       setSuccessAnim(true);
-      setSnackbar({ visible: true, message: 'Withdrawal sent!', type: 'success' });
+      setSnackbar({ visible: true, message: json.msg, type: 'success' });
+
       // reset form
       setFields({
         name: '',
@@ -121,21 +136,30 @@ export default function WithdrawalScreen2() {
         amount: '',
         upi: '',
       });
-
       setTimeout(() => setSuccessAnim(false), 2000);
-    } catch (err) {
-      setSnackbar({ visible: true, message: 'Submission failed', type: 'error' });
+    } catch (err: any) {
+      console.error(err);
+      setSnackbar({
+        visible: true,
+        message: err.message || 'Submission failed',
+        type: 'error',
+      });
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+    <SafeAreaView
+      style={{ flex: 1, backgroundColor: colors.background }}
+      edges={['top', 'left', 'right']}>
       <ImageBackground source={require('../assets/bg1.jpg')} style={{ flex: 1 }} resizeMode="cover">
-        {/* Top bar with dropdown */}
+        {/* Top Bar */}
         <View style={styles.topBar}>
-          <UserDropdown username="USER9081" />
+          <TouchableOpacity onPress={() => navigation.goBack()}>
+            <Feather name="arrow-left" size={24} color="#fff" />
+          </TouchableOpacity>
+          <UserDropdown username={username ?? userId} />
         </View>
 
         <KeyboardAvoidingView
@@ -158,7 +182,6 @@ export default function WithdrawalScreen2() {
               error={errors.name}
               shake={shake.name}
             />
-
             <FloatingInput
               label="Bank Name"
               iconName="home"
@@ -167,7 +190,6 @@ export default function WithdrawalScreen2() {
               error={errors.bank}
               shake={shake.bank}
             />
-
             <FloatingInput
               label="IFSC Code"
               iconName="hash"
@@ -177,7 +199,6 @@ export default function WithdrawalScreen2() {
               error={errors.ifsc}
               shake={shake.ifsc}
             />
-
             <FloatingInput
               label="Account No."
               iconName="credit-card"
@@ -187,7 +208,6 @@ export default function WithdrawalScreen2() {
               error={errors.account}
               shake={shake.account}
             />
-
             <FloatingInput
               label="Confirm Account"
               iconName="check-square"
@@ -197,7 +217,6 @@ export default function WithdrawalScreen2() {
               error={errors.confirmAccount}
               shake={shake.confirmAccount}
             />
-
             <FloatingInput
               label="Amount"
               iconName="dollar-sign"
@@ -207,10 +226,9 @@ export default function WithdrawalScreen2() {
               error={errors.amount}
               shake={shake.amount}
             />
-
             <FloatingInput
               label="UPI ID (Optional)"
-              iconName="credit-card"
+              iconName="shopping-cart"
               value={fields.upi}
               onChangeText={(t) => handleChange('upi', t)}
             />
@@ -220,7 +238,7 @@ export default function WithdrawalScreen2() {
             </GradientButton>
           </ScrollView>
 
-          {/* success checkmark */}
+          {/* Success checkmark */}
           {successAnim && (
             <MotiView
               from={{ scale: 0, opacity: 0 }}
@@ -248,14 +266,19 @@ export default function WithdrawalScreen2() {
 
 const styles = StyleSheet.create({
   topBar: {
+    width: '100%',
     flexDirection: 'row',
-    justifyContent: 'flex-end',
-    padding: 16,
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingTop: Platform.OS === 'ios' ? 16 : 8,
+    paddingHorizontal: 8,
+    paddingBottom: 8,
   },
   scroll: {
     flexGrow: 1,
     justifyContent: 'center',
-    padding: 24,
+    paddingHorizontal: 24,
+    paddingBottom: 32,
   },
   header: {
     alignItems: 'center',
