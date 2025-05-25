@@ -122,7 +122,7 @@ export default function DepositScreen() {
               onPress={handleSubmit}
               disabled={!image || loading}
               style={styles.submitButton}>
-              {loading ? 'Submitting…' : 'Submit Deposit Proof'}
+              {loading ? 'Submitting…' : 'Submit Deposit'}
             </GradientButton>
           </ScrollView>
         </KeyboardAvoidingView>
