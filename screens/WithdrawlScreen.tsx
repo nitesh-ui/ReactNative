@@ -8,7 +8,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  SafeAreaView,
   StyleSheet,
   ImageBackground,
 } from 'react-native';
@@ -25,6 +24,7 @@ import GradientButton from '../components/GradientButton';
 import AnimatedSnackbar from '../components/AnimatedSnackbar';
 import CoinLoader from '../components/CoinLoader';
 import UserDropdown from '../components/UserDropdown';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function WithdrawalScreen() {
   const { colors } = useTheme();
