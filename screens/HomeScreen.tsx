@@ -1,4 +1,5 @@
 // screens/HomeScreen.tsx
+
 import React, { useState, useContext, useEffect, useCallback, useRef } from 'react';
 import {
   View,
@@ -32,7 +33,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 
 const MIN_BET = 10;
 const { width: screenWidth } = Dimensions.get('window');
-// 5% horizontal padding
 const H_PADDING = screenWidth * 0.05;
 
 const coinImages: Record<string, { head: any; tail: any }> = {
@@ -55,7 +55,7 @@ export default function HomeScreen() {
   const { userId, userToken, username } = useContext(AuthContext);
   const { bgSound } = useContext(SoundContext);
 
-  // Mute state
+  // Mute toggle
   const [muted, setMuted] = useState(false);
   const toggleMute = async () => {
     if (!bgSound) return;
@@ -64,7 +64,7 @@ export default function HomeScreen() {
     await bgSound.setIsMutedAsync(next);
   };
 
-  // Flip animation state
+  // Flip animation
   const [selectedFace, setSelectedFace] = useState<'HEAD' | 'TAIL'>('HEAD');
   const [flipResult, setFlipResult] = useState<'HEAD' | 'TAIL'>('HEAD');
   const [flipping, setFlipping] = useState(false);
@@ -78,35 +78,44 @@ export default function HomeScreen() {
   const [selectedCountry, setSelectedCountry] = useState(countryFlags[0]);
   const [amount, setAmount] = useState(`${countryFlags[0].value}`);
 
-  // SFX
+  // Sound effects
   const [flipSound, setFlipSound] = useState<Audio.Sound | null>(null);
   const [winSound, setWinSound] = useState<Audio.Sound | null>(null);
   const [loseSound, setLoseSound] = useState<Audio.Sound | null>(null);
 
-  // Confetti & toast
+  // Confetti & snackbar
   const [showConfetti, setShowConfetti] = useState(false);
   const [snackbar, setSnackbar] = useState<{ visible: boolean; message: string }>({
     visible: false,
     message: '',
   });
 
-  // Fake-sim state
+  // Prevent hardware back during flip/sim
   const [simulating, setSimulating] = useState(false);
-  const simInterval = useRef<NodeJS.Timeout>();
   const flippingRef = useRef(flipping);
   useEffect(() => {
     flippingRef.current = flipping;
   }, [flipping]);
 
-  // random ID
-  const genId = () => {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-    return Array.from({ length: 6 })
-      .map(() => chars.charAt(Math.floor(Math.random() * chars.length)))
-      .join('');
-  };
+  // Countdown (drives simulation)
+  const [countdown, setCountdown] = useState(30);
+  useEffect(() => {
+    if (countdown === 0) {
+      runSimulation();
+      setCountdown(30);
+      return;
+    }
+    const timer = setTimeout(() => setCountdown((c) => c - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [countdown]);
 
-  // fetch balances
+  // Generate random ID for fake wins
+  const genId = () =>
+    Array.from({ length: 6 })
+      .map(() => 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'.charAt(Math.random() * 36))
+      .join('');
+
+  // Fetch balances once
   const fetchBalance = useCallback(async () => {
     try {
       const resp = await apiClient.post(
@@ -120,14 +129,11 @@ export default function HomeScreen() {
       setSnackbar({ visible: true, message: 'Could not fetch balance.' });
     }
   }, [userId, userToken]);
-
   useEffect(() => {
     fetchBalance();
-    simInterval.current = setInterval(runSimulation, 30000);
-    return () => simInterval.current && clearInterval(simInterval.current);
   }, [fetchBalance]);
 
-  // load sounds
+  // Load SFX
   useEffect(() => {
     let fs: Audio.Sound, ws: Audio.Sound, ls: Audio.Sound;
     (async () => {
@@ -145,7 +151,7 @@ export default function HomeScreen() {
     };
   }, []);
 
-  // play sfx
+  // Play effect under bg music
   const playEffect = useCallback(
     async (effect: Audio.Sound | null) => {
       if (!bgSound || !effect) return;
@@ -156,7 +162,7 @@ export default function HomeScreen() {
     [bgSound]
   );
 
-  // block back during flip/sim
+  // Block back
   useEffect(() => {
     const onBack = () => {
       if (currentBalance !== 0 || simulating) {
@@ -172,15 +178,16 @@ export default function HomeScreen() {
     return () => BackHandler.removeEventListener('hardwareBackPress', onBack);
   }, [currentBalance, simulating]);
 
-  // real flip
+  // Real BET flip
   const handleFlip = async () => {
     const bet = parseInt(amount, 10) || 0;
     if (bet < MIN_BET) {
-      return setSnackbar({
-        visible: true,
-        message: `Min bet is ${selectedCountry.symbol}${MIN_BET}`,
-      });
+      setSnackbar({ visible: true, message: `Min bet is ${selectedCountry.symbol}${MIN_BET}` });
+      return;
     }
+    // reset countdown
+    setCountdown(30);
+
     await flipSound?.replayAsync();
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     setFlipping(true);
@@ -209,7 +216,7 @@ export default function HomeScreen() {
     }, 800);
   };
 
-  // takeout
+  // Takeout
   const handleTakeout = async () => {
     if (!currentBalance) return;
     try {
@@ -225,13 +232,13 @@ export default function HomeScreen() {
     }
   };
 
-  // country switch
+  // Country change
   const handleCountryChange = (c: (typeof countryFlags)[0]) => {
     setSelectedCountry(c);
     setAmount(`${c.value}`);
   };
 
-  // fake simulation
+  // Fake simulation
   async function runSimulation() {
     if (flippingRef.current) return;
     setSimulating(true);
@@ -260,7 +267,7 @@ export default function HomeScreen() {
           source={require('../assets/bg1.jpg')}
           style={{ flex: 1 }}
           resizeMode="cover">
-          <View style={[styles.container]}>
+          <View style={styles.container}>
             {/* Top Bar */}
             <View style={styles.topBar}>
               <Text style={{ color: '#fff', fontWeight: '600' }}>
@@ -275,10 +282,9 @@ export default function HomeScreen() {
               </View>
             </View>
 
-            {/* Main Content */}
+            {/* Main */}
             <View style={styles.content} pointerEvents={simulating ? 'none' : 'auto'}>
               <Text style={[styles.title, { color: colors.text }]}>🪙 Flip To Win</Text>
-
               {/* Coin */}
               <View style={{ marginVertical: 16 }}>
                 <View style={styles.coinStage}>
@@ -328,14 +334,16 @@ export default function HomeScreen() {
                       source={c.flag}
                       style={[
                         styles.flag,
-                        c.code === selectedCountry.code && { borderColor: colors.primary },
+                        c.code === selectedCountry.code && {
+                          borderColor: colors.primary,
+                        },
                       ]}
                     />
                   </TouchableOpacity>
                 ))}
               </View>
 
-              {/* Amount Input */}
+              {/* Amount */}
               <Text style={[styles.label, { color: colors.text }]}>ENTER AMOUNT</Text>
               <TextInput
                 value={amount}
@@ -369,8 +377,13 @@ export default function HomeScreen() {
                 ))}
               </View>
 
-              {/* Actions */}
+              {/* Actions + Countdown */}
               <View style={styles.actions}>
+                <Text style={styles.timerLabel}>
+                  Next auto–flip in{' '}
+                  <Text style={[styles.timerCount, { color: colors.primary }]}>{countdown}s</Text>
+                </Text>
+
                 <MotiView
                   from={{ shadowRadius: 5, shadowOpacity: 0.4 }}
                   animate={{ shadowRadius: [5, 20, 5], shadowOpacity: [0.4, 0.8, 0.4] }}
@@ -385,6 +398,7 @@ export default function HomeScreen() {
                     BET
                   </Button>
                 </MotiView>
+
                 <Button
                   mode="outlined"
                   onPress={handleTakeout}
@@ -397,7 +411,7 @@ export default function HomeScreen() {
             </View>
           </View>
 
-          {/* Custom Toast */}
+          {/* Snackbar */}
           {snackbar.visible && (
             <MotiView
               from={{ scale: 0.8, opacity: 0 }}
@@ -423,10 +437,7 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    paddingHorizontal: H_PADDING,
-  },
+  container: { flex: 1, paddingHorizontal: H_PADDING },
   topBar: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -434,22 +445,12 @@ const styles = StyleSheet.create({
     paddingTop: Platform.OS === 'ios' ? 16 : 8,
     paddingBottom: 8,
   },
-  topRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  iconButton: {
-    marginRight: 12,
-  },
-  content: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'space-evenly',
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-  },
+  topRight: { flexDirection: 'row', alignItems: 'center' },
+  iconButton: { marginRight: 12 },
+
+  content: { flex: 1, alignItems: 'center', justifyContent: 'space-evenly' },
+  title: { fontSize: 24, fontWeight: 'bold' },
+
   coinStage: {
     width: 150,
     height: 150,
@@ -467,11 +468,12 @@ const styles = StyleSheet.create({
   coinImage: {
     width: '100%',
     height: '100%',
-    borderRadius: 100,
+    borderRadius: 75,
     shadowColor: '#FFD700',
     shadowOpacity: 0.5,
     shadowRadius: 20,
   },
+
   shadow: {
     position: 'absolute',
     top: '100%',
@@ -481,24 +483,13 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     alignSelf: 'center',
   },
-  pending: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  countryRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    width: '100%',
-  },
-  flag: {
-    width: 60,
-    height: 40,
-    borderWidth: 2,
-    borderColor: 'transparent',
-  },
-  label: {
-    marginBottom: 6,
-  },
+
+  pending: { fontSize: 16, fontWeight: '600' },
+
+  countryRow: { flexDirection: 'row', justifyContent: 'space-between', width: '100%' },
+  flag: { width: 60, height: 40, borderWidth: 2, borderColor: 'transparent' },
+
+  label: { marginBottom: 6 },
   amountInput: {
     backgroundColor: 'white',
     borderRadius: 10,
@@ -508,33 +499,27 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 12,
   },
+
   faceRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     width: '100%',
     marginVertical: 12,
   },
-  faceBtn: {
-    width: 120,
-    height: 48,
-    borderRadius: 8,
-    justifyContent: 'center',
-  },
-  actions: {
-    width: '100%',
-    alignItems: 'center',
-  },
+  faceBtn: { width: 120, height: 48, borderRadius: 8, justifyContent: 'center' },
+
+  actions: { width: '100%', alignItems: 'center' },
+  timerLabel: { fontSize: 14, color: '#fff', marginBottom: 8, textAlign: 'center' },
+  timerCount: { fontWeight: '700' },
+
   flipGlow: {
     width: '100%',
     borderRadius: 8,
     shadowOffset: { width: 0, height: 0 },
     marginBottom: 12,
   },
-  flipBtn: {
-    height: 48,
-    borderRadius: 8,
-    justifyContent: 'center',
-  },
+  flipBtn: { height: 48, borderRadius: 8, justifyContent: 'center' },
+
   takeoutBtn: {
     width: '100%',
     height: 48,
@@ -542,10 +527,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderColor: '#fff',
   },
-  takeoutLabel: {
-    color: '#fff',
-    fontWeight: '600',
-  },
+  takeoutLabel: { color: '#fff', fontWeight: '600' },
+
   toastContainer: {
     position: 'absolute',
     top: 32,
@@ -563,10 +546,5 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowRadius: 6,
   },
-  toastText: {
-    color: '#000',
-    fontWeight: '700',
-    fontSize: 16,
-    textAlign: 'center',
-  },
+  toastText: { color: '#000', fontWeight: '700', fontSize: 16, textAlign: 'center' },
 });
