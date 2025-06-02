@@ -10,20 +10,23 @@ import { BalanceProvider } from 'context/BalanceContext';
 import RootNavigator from 'navigation/RootNavigator';
 import { AuthProvider } from 'context/AuthContext';
 import { SoundProvider } from 'context/SoundContext';
+import { CurrencyProvider } from './context/CurrencyContext';
 
 export default function App() {
   return (
     <SafeAreaProvider>
       <AuthProvider>
         <BalanceProvider>
-          <PaperProvider theme={AppTheme}>
-            <SoundProvider>
-              <NavigationContainer>
-                {/* <AppNavigator /> */}
-                <RootNavigator />
-              </NavigationContainer>
-            </SoundProvider>
-          </PaperProvider>
+          <CurrencyProvider>
+            <PaperProvider theme={AppTheme}>
+              <SoundProvider>
+                <NavigationContainer>
+                  {/* <AppNavigator /> */}
+                  <RootNavigator />
+                </NavigationContainer>
+              </SoundProvider>
+            </PaperProvider>
+          </CurrencyProvider>
         </BalanceProvider>
       </AuthProvider>
     </SafeAreaProvider>

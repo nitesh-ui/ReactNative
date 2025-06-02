@@ -30,6 +30,7 @@ import { AuthContext } from '../context/AuthContext';
 import { SoundContext } from '../context/SoundContext';
 import apiClient from '../api/client';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useCurrency } from '../context/CurrencyContext';
 
 const MIN_BET = 10;
 const { width: screenWidth } = Dimensions.get('window');
@@ -54,6 +55,7 @@ export default function HomeScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { userId, userToken, username } = useContext(AuthContext);
   const { bgSound } = useContext(SoundContext);
+  const { convertAmount, loading: currencyLoading, getDefaultAmount } = useCurrency();
 
   // Mute toggle
   const [muted, setMuted] = useState(false);
@@ -178,64 +180,95 @@ export default function HomeScreen() {
     return () => BackHandler.removeEventListener('hardwareBackPress', onBack);
   }, [currentBalance, simulating]);
 
-  // Real BET flip
+  // Update displayed balances when currency changes
+  const [displayBalance, setDisplayBalance] = useState(0);
+  const [displayCurrentBalance, setDisplayCurrentBalance] = useState(0);
+
+  useEffect(() => {
+    const updateBalances = async () => {
+      try {
+        // Convert from INR to selected currency
+        const convertedWallet = await convertAmount(walletBalance, 'IN', selectedCountry.code);
+        const convertedCurrent = await convertAmount(currentBalance, 'IN', selectedCountry.code);
+        setDisplayBalance(convertedWallet);
+        setDisplayCurrentBalance(convertedCurrent);
+      } catch (err) {
+        console.error('Balance conversion error:', err);
+        // Fallback to original values
+        setDisplayBalance(walletBalance);
+        setDisplayCurrentBalance(currentBalance);
+      }
+    };
+    updateBalances();
+  }, [walletBalance, currentBalance, selectedCountry.code, convertAmount]);
+
+  // Country change handler with amount conversion
+  const handleCountryChange = async (c: (typeof countryFlags)[0]) => {
+    try {
+      if (selectedCountry.code !== c.code && amount) {
+        // Convert current bet amount to new currency
+        const convertedAmount = await convertAmount(
+          parseInt(amount, 10),
+          selectedCountry.code,
+          c.code
+        );
+        setAmount(Math.round(convertedAmount).toString());
+      }
+      setSelectedCountry(c);
+    } catch (err) {
+      console.error('Amount conversion error:', err);
+      // If conversion fails, use default amount for the selected country
+      setAmount(getDefaultAmount(c.code).toString());
+    }
+  };
+
+  // Modify handleFlip to convert bet amount to INR before sending to server
   const handleFlip = async () => {
-    const bet = parseInt(amount, 10) || 0;
-    if (bet < MIN_BET) {
+    const localBet = parseInt(amount, 10) || 0;
+    if (localBet < MIN_BET) {
       setSnackbar({ visible: true, message: `Min bet is ${selectedCountry.symbol}${MIN_BET}` });
       return;
     }
-    // reset countdown
-    setCountdown(30);
 
-    await flipSound?.replayAsync();
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-    setFlipping(true);
-    setRotation((r) => r + 720);
-    setTimeout(async () => {
-      try {
-        const { data } = await apiClient.post(
-          '/play/flip',
-          { userId, face: selectedFace.toLowerCase(), amount: bet },
-          { headers: { Authorization: `Bearer ${userToken}` } }
-        );
-        setFlipResult(data.coinFlip.toUpperCase());
-        setCurrentBalance(data.currentBalance);
-        setWalletBalance(data.walletBalance);
-        const won = data.result === 'win';
-        await playEffect(won ? winSound : loseSound);
-        if (won) {
-          setShowConfetti(true);
-          setTimeout(() => setShowConfetti(false), 3000);
-        }
-      } catch {
-        setSnackbar({ visible: true, message: 'Could not play flip.' });
-      } finally {
-        setFlipping(false);
-      }
-    }, 800);
-  };
-
-  // Takeout
-  const handleTakeout = async () => {
-    if (!currentBalance) return;
     try {
-      const { data } = await apiClient.post(
-        '/balance/takeout',
-        { userId },
-        { headers: { Authorization: `Bearer ${userToken}` } }
-      );
-      setWalletBalance(data.walletBalance);
-      setCurrentBalance(data.currentBalance);
-    } catch {
-      setSnackbar({ visible: true, message: 'Could not take out.' });
-    }
-  };
+      // Convert bet to INR for server
+      const inrBet = await convertAmount(localBet, selectedCountry.code, 'IN');
 
-  // Country change
-  const handleCountryChange = (c: (typeof countryFlags)[0]) => {
-    setSelectedCountry(c);
-    setAmount(`${c.value}`);
+      // reset countdown
+      setCountdown(30);
+
+      await flipSound?.replayAsync();
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+      setFlipping(true);
+      setRotation((r) => r + 720);
+
+      setTimeout(async () => {
+        try {
+          const { data } = await apiClient.post(
+            '/play/flip',
+            { userId, face: selectedFace.toLowerCase(), amount: Math.round(inrBet) },
+            { headers: { Authorization: `Bearer ${userToken}` } }
+          );
+          console.log(data);
+          setFlipResult(data.coinFlip.toUpperCase());
+          setCurrentBalance(data.currentBalance);
+          setWalletBalance(data.walletBalance);
+          const won = data.result === 'win';
+          await playEffect(won ? winSound : loseSound);
+          if (won) {
+            setShowConfetti(true);
+            setTimeout(() => setShowConfetti(false), 3000);
+          }
+        } catch {
+          setSnackbar({ visible: true, message: 'Could not play flip.' });
+        } finally {
+          setFlipping(false);
+        }
+      }, 800);
+    } catch (err) {
+      console.error('Bet conversion error:', err);
+      setSnackbar({ visible: true, message: 'Currency conversion failed.' });
+    }
   };
 
   // Fake simulation
@@ -256,6 +289,22 @@ export default function HomeScreen() {
     setSimulating(false);
   }
 
+  // Takeout
+  const handleTakeout = async () => {
+    if (!currentBalance) return;
+    try {
+      const { data } = await apiClient.post(
+        '/balance/takeout',
+        { userId },
+        { headers: { Authorization: `Bearer ${userToken}` } }
+      );
+      setWalletBalance(data.walletBalance);
+      setCurrentBalance(data.currentBalance);
+    } catch {
+      setSnackbar({ visible: true, message: 'Could not take out.' });
+    }
+  };
+
   const { head, tail } = coinImages[selectedCountry.code];
 
   return (
@@ -272,7 +321,8 @@ export default function HomeScreen() {
             <View style={styles.topBar}>
               <Text style={{ color: '#fff', fontWeight: '600' }}>
                 BALANCE: {selectedCountry.symbol}
-                {walletBalance.toFixed(2)}
+                {displayBalance.toFixed(2)}
+                {currencyLoading && ' (updating...)'}
               </Text>
               <View style={styles.topRight}>
                 <TouchableOpacity onPress={toggleMute} style={styles.iconButton}>
@@ -322,7 +372,7 @@ export default function HomeScreen() {
                 <Text style={[styles.pending, { color: currentBalance > 0 ? '#0f0' : '#f55' }]}>
                   {currentBalance > 0 ? '+' : ''}
                   {selectedCountry.symbol}
-                  {Math.abs(currentBalance).toFixed(2)} pending
+                  {Math.abs(displayCurrentBalance).toFixed(2)} pending
                 </Text>
               )}
 
