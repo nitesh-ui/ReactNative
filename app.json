@@ -1,27 +1,21 @@
 {
   "expo": {
-    "name": "my-expo-app",
+    "name": "Flip-To-WIN",
     "slug": "my-expo-app",
     "version": "1.0.0",
+    "package": "com.my-expo-app.flip-to-win",
     "newArchEnabled": true,
-
     "platforms": ["ios", "android", "web"],
-
     "web": {
       "favicon": "./assets/favicon.png"
     },
-
     "experiments": {
       "tsconfigPaths": true
     },
-
     "plugins": [],
-
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-
     "userInterfaceStyle": "light",
-
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
@@ -29,18 +23,24 @@
     },
     "assetBundlePatterns": ["**/*"],
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.ak3850.FlipToWIN"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
-      }
+      },
+      "package": "com.ak3850.FlipToWIN"
     },
-
     "jsEngine": "hermes",
     "experimental": {
       "newArchEnabled": true
+    },
+    "extra": {
+      "eas": {
+        "projectId": "17e0e989-5dcf-4ebb-afd0-c69dafa89ae5"
+      }
     }
   }
 }
