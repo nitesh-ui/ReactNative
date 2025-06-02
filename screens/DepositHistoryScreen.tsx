@@ -42,7 +42,7 @@ export default function DepositHistoryScreen() {
     async function fetchHistory() {
       try {
         setLoading(true);
-        const resp = await fetch(`https://ftbtest1.onrender.com/api/deposit/history/O8HVRJ`, {
+        const resp = await fetch(`https://ftbtest1.onrender.com/api/deposit/history/${userId}`, {
           method: 'GET',
           headers: {
             Authorization: `Bearer ${userToken}`,

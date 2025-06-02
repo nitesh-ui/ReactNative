@@ -56,7 +56,7 @@ export default function WithdrawHistoryScreen() {
       try {
         setLoading(true);
         const resp = await apiClient.get<WithdrawRecord[]>(
-          `https://ftbtest1.onrender.com/api/withdraw/history/O8HVRJ`,
+          `https://ftbtest1.onrender.com/api/withdraw/history/${userId}`,
           {
             headers: {
               Authorization: `Bearer ${userToken}`,
