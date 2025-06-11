@@ -4,8 +4,21 @@ import React, { useState, useContext } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { Menu, Divider } from 'react-native-paper';
 import { useNavigation, CommonActions } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { MaterialIcons } from '@expo/vector-icons';
 import { AuthContext } from '../context/AuthContext';
+
+type RootStackParamList = {
+  MyAccount: undefined;
+  DepositScreen: undefined;
+  WithdrawlScreen: undefined;
+  DepositHistoryScreen: undefined;
+  WithdrawHistoryScreen: undefined;
+  HelpScreen: undefined;
+  Login: undefined;
+};
+
+type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 type Props = {
   username?: string;
@@ -13,7 +26,7 @@ type Props = {
 
 function UserDropdownComponent({ username = 'USER9801' }: Props) {
   const [visible, setVisible] = useState(false);
-  const navigation = useNavigation();
+  const navigation = useNavigation<NavigationProp>();
   const { logout } = useContext(AuthContext);
 
   const openMenu = () => setVisible(true);
@@ -40,6 +53,12 @@ function UserDropdownComponent({ username = 'USER9801' }: Props) {
     closeMenu();
     navigation.navigate('WithdrawHistoryScreen');
   };
+
+  const handleHelp = () => {
+    closeMenu();
+    navigation.navigate('HelpScreen');
+  };
+
   const handleLogout = async () => {
     closeMenu();
     try {
@@ -89,7 +108,7 @@ function UserDropdownComponent({ username = 'USER9801' }: Props) {
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.item} onPress={handleDepositHistory}>
-          <MaterialIcons name="money-off" size={20} color="#fff" />
+          <MaterialIcons name="account-balance" size={20} color="#fff" />
           <Text style={styles.itemText}>Deposit History</Text>
         </TouchableOpacity>
 
@@ -103,6 +122,11 @@ function UserDropdownComponent({ username = 'USER9801' }: Props) {
           <Text style={styles.itemText}>Withdraw History</Text>
         </TouchableOpacity>
 
+        <TouchableOpacity style={styles.item} onPress={handleHelp}>
+          <MaterialIcons name="help" size={20} color="#fff" />
+          <Text style={styles.itemText}>Help</Text>
+        </TouchableOpacity>
+
         <Divider style={styles.divider} />
 
         <TouchableOpacity style={styles.item} onPress={handleLogout}>
@@ -114,7 +138,7 @@ function UserDropdownComponent({ username = 'USER9801' }: Props) {
   );
 }
 
-// Wrap with React.memo so that parent re-renders (like countdown ticks) won’t force this component to close
+// Wrap with React.memo so that parent re-renders (like countdown ticks) won't force this component to close
 export default React.memo(UserDropdownComponent);
 
 const styles = StyleSheet.create({

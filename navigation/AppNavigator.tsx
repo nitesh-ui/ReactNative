@@ -14,11 +14,23 @@ import LandingScreen from 'screens/LandinScreen';
 import HomeScreen2 from 'screens/HomeScreen2';
 import DepositHistoryScreen from 'screens/DepositHistoryScreen';
 import WithdrawHistoryScreen from 'screens/WithdrawHistoryScreen';
+import HelpScreen from 'screens/HelpScreen';
 
 export type RootStackParamList = {
   Login: undefined;
   Register: undefined;
   ForgotPassword: undefined;
+  VerificationCode: { input: string };
+  ResetPassword: undefined;
+  HomeScreen: undefined;
+  DepositScreen: undefined;
+  WithdrawlScreen: undefined;
+  MyAccount: undefined;
+  Landing: undefined;
+  HomeScreen2: undefined;
+  DepositHistoryScreen: undefined;
+  WithdrawHistoryScreen: undefined;
+  HelpScreen: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -46,6 +58,7 @@ export default function AppNavigator({ initialRouteName = 'Login' }: Props) {
       {/* <Stack.Screen name="HomeScreen2" component={HomeScreen2} /> */}
       <Stack.Screen name="DepositHistoryScreen" component={DepositHistoryScreen} />
       <Stack.Screen name="WithdrawHistoryScreen" component={WithdrawHistoryScreen} />
+      <Stack.Screen name="HelpScreen" component={HelpScreen} />
     </Stack.Navigator>
   );
 }
