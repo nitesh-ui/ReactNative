@@ -16,9 +16,9 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme, Button } from 'react-native-paper';
-import { MotiView } from 'moti';
+import { MotiView, MotiTransition } from 'moti';
 import ConfettiCannon from 'react-native-confetti-cannon';
-import { Audio } from 'expo-av';
+import { Audio, AVPlaybackStatus } from 'expo-av';
 import * as Haptics from 'expo-haptics';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -57,6 +57,28 @@ export default function HomeScreen() {
   const { bgSound } = useContext(SoundContext);
   const { convertAmount, loading: currencyLoading, getDefaultAmount } = useCurrency();
 
+  // Play effect under bg music with fixed type
+  const playEffect = useCallback(
+    async (effect: Audio.Sound | null) => {
+      if (!bgSound || !effect) return;
+      await bgSound.setVolumeAsync(0.2);
+      effect.setOnPlaybackStatusUpdate((st: AVPlaybackStatus) => {
+        if (!('error' in st) && st.isLoaded && st.didJustFinish) {
+          bgSound.setVolumeAsync(1.0);
+        }
+      });
+      await effect.replayAsync();
+    },
+    [bgSound]
+  );
+
+  // Add queued bet state at the top with other states
+  const [queuedBet, setQueuedBet] = useState<{
+    amount: number;
+    face: 'HEAD' | 'TAIL';
+    countryCode: string;
+  } | null>(null);
+
   // Mute toggle
   const [muted, setMuted] = useState(false);
   const toggleMute = async () => {
@@ -79,6 +101,8 @@ export default function HomeScreen() {
   // UI state
   const [selectedCountry, setSelectedCountry] = useState(countryFlags[0]);
   const [amount, setAmount] = useState(`${countryFlags[0].value}`);
+  const [consecutiveWins, setConsecutiveWins] = useState(0);
+  const [multiplier, setMultiplier] = useState(1);
 
   // Sound effects
   const [flipSound, setFlipSound] = useState<Audio.Sound | null>(null);
@@ -100,16 +124,135 @@ export default function HomeScreen() {
   }, [flipping]);
 
   // Countdown (drives simulation)
-  const [countdown, setCountdown] = useState(30);
+  const [countdown, setCountdown] = useState(20);
   useEffect(() => {
     if (countdown === 0) {
-      runSimulation();
-      setCountdown(30);
-      return;
+      const executeSimulation = async () => {
+        if (!queuedBet) {
+          // No bet queued - just do animation and simulation
+          await flipSound?.replayAsync();
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+          setFlipping(true);
+          setRotation((r) => r + 720);
+
+          // Random result for animation
+          setFlipResult(Math.random() > 0.5 ? 'HEAD' : 'TAIL');
+
+          // Wait for flip animation
+          await new Promise((resolve) => setTimeout(resolve, 800));
+          setFlipping(false);
+
+          // Run fake wins simulation
+          setSimulating(true);
+          for (let i = 0; i < 5; i++) {
+            setSnackbar({ visible: true, message: `${genId()} won!` });
+            await new Promise((r) => setTimeout(r, 1200));
+            setSnackbar((s) => ({ ...s, visible: false }));
+            await new Promise((r) => setTimeout(r, 200));
+          }
+          setSimulating(false);
+        } else {
+          // Execute real bet
+          try {
+            // Convert multiplied bet to INR for server
+            const inrBet = await convertAmount(queuedBet.amount, queuedBet.countryCode, 'IN');
+
+            // Start animation
+            await flipSound?.replayAsync();
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+            setFlipping(true);
+            setRotation((r) => r + 720);
+
+            try {
+              // Make API call while animation is running
+              const { data } = await apiClient.post(
+                '/play/flip',
+                {
+                  userId,
+                  face: queuedBet.face.toLowerCase(),
+                  amount: Math.round(inrBet),
+                },
+                { headers: { Authorization: `Bearer ${userToken}` } }
+              );
+
+              console.log('data', data);
+
+              // Wait for flip animation to complete
+              await new Promise((resolve) => setTimeout(resolve, 800));
+
+              // Update game state
+              setFlipResult(data.coinFlip.toUpperCase());
+              setCurrentBalance(data.currentBalance);
+              setWalletBalance(data.walletBalance);
+
+              // Complete animation
+              setFlipping(false);
+
+              const won = data.result === 'win';
+              if (won) {
+                setConsecutiveWins((prev) => {
+                  const newWins = prev + 1;
+                  // Update multiplier based on consecutive wins
+                  if (newWins === 1) setMultiplier(2);
+                  else if (newWins === 2) setMultiplier(5);
+                  else if (newWins >= 3) setMultiplier(10);
+                  return newWins;
+                });
+                setShowConfetti(true);
+                setTimeout(() => setShowConfetti(false), 3000);
+              } else {
+                // Reset on loss
+                setConsecutiveWins(0);
+                setMultiplier(1);
+              }
+              await playEffect(won ? winSound : loseSound);
+
+              // Run fake wins simulation after real bet
+              setSimulating(true);
+              for (let i = 0; i < 5; i++) {
+                setSnackbar({ visible: true, message: `${genId()} won!` });
+                await new Promise((r) => setTimeout(r, 1200));
+                setSnackbar((s) => ({ ...s, visible: false }));
+                await new Promise((r) => setTimeout(r, 200));
+              }
+              setSimulating(false);
+            } catch (error) {
+              // Ensure animation completes even on error
+              await new Promise((resolve) => setTimeout(resolve, 800));
+              setFlipping(false);
+              setSnackbar({ visible: true, message: 'Could not play flip.' });
+            } finally {
+              setQueuedBet(null); // Clear the queued bet
+            }
+          } catch (err) {
+            console.error('Bet conversion error:', err);
+            setSnackbar({ visible: true, message: 'Currency conversion failed.' });
+            setQueuedBet(null); // Clear the queued bet on error
+            // Ensure animation completes on conversion error
+            await new Promise((resolve) => setTimeout(resolve, 800));
+            setFlipping(false);
+          }
+        }
+
+        setCountdown(20); // Reset timer after execution
+      };
+
+      executeSimulation();
+    } else {
+      const timer = setTimeout(() => setCountdown((c) => c - 1), 1000);
+      return () => clearTimeout(timer);
     }
-    const timer = setTimeout(() => setCountdown((c) => c - 1), 1000);
-    return () => clearTimeout(timer);
-  }, [countdown]);
+  }, [
+    countdown,
+    queuedBet,
+    convertAmount,
+    flipSound,
+    playEffect,
+    winSound,
+    loseSound,
+    userToken,
+    userId,
+  ]);
 
   // Generate random ID for fake wins
   const genId = () =>
@@ -153,32 +296,19 @@ export default function HomeScreen() {
     };
   }, []);
 
-  // Play effect under bg music
-  const playEffect = useCallback(
-    async (effect: Audio.Sound | null) => {
-      if (!bgSound || !effect) return;
-      await bgSound.setVolumeAsync(0.2);
-      effect.setOnPlaybackStatusUpdate((st) => st.didJustFinish && bgSound.setVolumeAsync(1.0));
-      await effect.replayAsync();
-    },
-    [bgSound]
-  );
+  // Animation configurations
+  const timingConfig = {
+    type: 'timing',
+    duration: 1000,
+    delay: 0,
+  } as const;
 
-  // Block back
-  useEffect(() => {
-    const onBack = () => {
-      if (currentBalance !== 0 || simulating) {
-        setSnackbar({
-          visible: true,
-          message: simulating ? 'Please wait…' : 'Please takeout first.',
-        });
-        return true;
-      }
-      return false;
-    };
-    BackHandler.addEventListener('hardwareBackPress', onBack);
-    return () => BackHandler.removeEventListener('hardwareBackPress', onBack);
-  }, [currentBalance, simulating]);
+  const springConfig = {
+    type: 'spring',
+    damping: 10,
+    mass: 1,
+    stiffness: 100,
+  } as const;
 
   // Update displayed balances when currency changes
   const [displayBalance, setDisplayBalance] = useState(0);
@@ -222,72 +352,38 @@ export default function HomeScreen() {
     }
   };
 
-  // Modify handleFlip to convert bet amount to INR before sending to server
+  // Modify handleFlip to auto-hide snackbar
   const handleFlip = async () => {
     const localBet = parseInt(amount, 10) || 0;
+    const multipliedBet = localBet * multiplier; // Calculate actual bet amount
+
     if (localBet < MIN_BET) {
       setSnackbar({ visible: true, message: `Min bet is ${selectedCountry.symbol}${MIN_BET}` });
       return;
     }
 
-    try {
-      // Convert bet to INR for server
-      const inrBet = await convertAmount(localBet, selectedCountry.code, 'IN');
-
-      // reset countdown
-      setCountdown(30);
-
-      await flipSound?.replayAsync();
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-      setFlipping(true);
-      setRotation((r) => r + 720);
-
-      setTimeout(async () => {
-        try {
-          const { data } = await apiClient.post(
-            '/play/flip',
-            { userId, face: selectedFace.toLowerCase(), amount: Math.round(inrBet) },
-            { headers: { Authorization: `Bearer ${userToken}` } }
-          );
-          console.log(data);
-          setFlipResult(data.coinFlip.toUpperCase());
-          setCurrentBalance(data.currentBalance);
-          setWalletBalance(data.walletBalance);
-          const won = data.result === 'win';
-          await playEffect(won ? winSound : loseSound);
-          if (won) {
-            setShowConfetti(true);
-            setTimeout(() => setShowConfetti(false), 3000);
-          }
-        } catch {
-          setSnackbar({ visible: true, message: 'Could not play flip.' });
-        } finally {
-          setFlipping(false);
-        }
-      }, 800);
-    } catch (err) {
-      console.error('Bet conversion error:', err);
-      setSnackbar({ visible: true, message: 'Currency conversion failed.' });
+    if (queuedBet) {
+      setSnackbar({ visible: true, message: 'A bet is already queued' });
+      return;
     }
-  };
 
-  // Fake simulation
-  async function runSimulation() {
-    if (flippingRef.current) return;
-    setSimulating(true);
-    await playEffect(flipSound);
-    setFlipping(true);
-    setRotation((r) => r + 720);
-    await new Promise((r) => setTimeout(r, 1000));
-    setFlipping(false);
-    for (let i = 0; i < 5; i++) {
-      setSnackbar({ visible: true, message: `${genId()} won!` });
-      await new Promise((r) => setTimeout(r, 1200));
+    // Queue the bet with multiplied amount
+    setQueuedBet({
+      amount: multipliedBet, // Store multiplied amount
+      face: selectedFace,
+      countryCode: selectedCountry.code,
+    });
+
+    setSnackbar({
+      visible: true,
+      message: `Bet queued! ${selectedCountry.symbol}${localBet}${multiplier > 1 ? ` (X${multiplier} = ${selectedCountry.symbol}${multipliedBet})` : ''} will execute in ${countdown} seconds`,
+    });
+
+    // Auto-hide snackbar after 3 seconds
+    setTimeout(() => {
       setSnackbar((s) => ({ ...s, visible: false }));
-      await new Promise((r) => setTimeout(r, 200));
-    }
-    setSimulating(false);
-  }
+    }, 3000);
+  };
 
   // Takeout
   const handleTakeout = async () => {
@@ -328,13 +424,13 @@ export default function HomeScreen() {
                 <TouchableOpacity onPress={toggleMute} style={styles.iconButton}>
                   <MaterialIcons name={muted ? 'volume-off' : 'volume-up'} size={24} color="#fff" />
                 </TouchableOpacity>
-                <UserDropdown username={username || userId} />
+                <UserDropdown username={username || userId || 'USER'} />
               </View>
             </View>
 
             {/* Main */}
             <View style={styles.content} pointerEvents={simulating ? 'none' : 'auto'}>
-              <Text style={[styles.title, { color: colors.text }]}>🪙 Flip To Win</Text>
+              <Text style={[styles.title, { color: '#fff' }]}>🪙 Flip To Win</Text>
               {/* Coin */}
               <View style={{ marginVertical: 16 }}>
                 <View style={styles.coinStage}>
@@ -344,7 +440,7 @@ export default function HomeScreen() {
                       rotateX: flipResult === 'HEAD' ? `${rotation}deg` : `${rotation + 180}deg`,
                       translateY: flipping ? -80 : 0,
                     }}
-                    transition={{ type: 'timing', duration: 1000 }}
+                    transition={timingConfig}
                     style={styles.coinWrapper}>
                     <Image source={head} style={styles.coinImage} />
                   </MotiView>
@@ -354,7 +450,7 @@ export default function HomeScreen() {
                       rotateX: flipResult === 'TAIL' ? `${rotation}deg` : `${rotation + 180}deg`,
                       translateY: flipping ? -40 : 0,
                     }}
-                    transition={{ type: 'timing', duration: 1000 }}
+                    transition={timingConfig}
                     style={[styles.coinWrapper, styles.backface]}>
                     <Image source={tail} style={styles.coinImage} />
                   </MotiView>
@@ -362,7 +458,7 @@ export default function HomeScreen() {
                 <MotiView
                   from={{ scaleX: 1.4, opacity: 0.6 }}
                   animate={{ scaleX: flipping ? 1 : 1.4, opacity: flipping ? 0.3 : 0.6 }}
-                  transition={{ type: 'timing', duration: 1000 }}
+                  transition={timingConfig}
                   style={styles.shadow}
                 />
               </View>
@@ -373,6 +469,18 @@ export default function HomeScreen() {
                   {currentBalance > 0 ? '+' : ''}
                   {selectedCountry.symbol}
                   {Math.abs(displayCurrentBalance).toFixed(2)} pending
+                </Text>
+              )}
+
+              {/* Add queued bet indicator with multiplied amount */}
+              {queuedBet && (
+                <Text style={[styles.pending, { color: '#FFC107' }]}>
+                  Queued bet: {selectedCountry.symbol}
+                  {parseInt(amount, 10)}
+                  {multiplier > 1
+                    ? ` (X${multiplier} = ${selectedCountry.symbol}${queuedBet.amount})`
+                    : ''}{' '}
+                  on {queuedBet.face}
                 </Text>
               )}
 
@@ -394,13 +502,25 @@ export default function HomeScreen() {
               </View>
 
               {/* Amount */}
-              <Text style={[styles.label, { color: colors.text }]}>ENTER AMOUNT</Text>
-              <TextInput
-                value={amount}
-                onChangeText={(t) => setAmount(t.replace(/[^0-9]/g, ''))}
-                keyboardType="numeric"
-                style={styles.amountInput}
-              />
+              <Text style={[styles.label, { color: '#fff' }]}>ENTER AMOUNT</Text>
+              <View style={styles.amountContainer}>
+                <TextInput
+                  value={amount}
+                  onChangeText={(t) => setAmount(t.replace(/[^0-9]/g, ''))}
+                  keyboardType="numeric"
+                  style={[styles.amountInput, queuedBet && styles.disabledInput]}
+                  editable={!queuedBet}
+                />
+                {multiplier > 1 && (
+                  <MotiView
+                    from={{ scale: 0.8, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    exit={{ scale: 0.8, opacity: 0 }}
+                    style={styles.multiplierContainer}>
+                    <Text style={styles.multiplierText}>X {multiplier}</Text>
+                  </MotiView>
+                )}
+              </View>
 
               {/* HEAD / TAIL */}
               <View style={styles.faceRow}>
@@ -409,16 +529,17 @@ export default function HomeScreen() {
                     key={face}
                     from={{ scale: 1 }}
                     animate={{ scale: selectedFace === face ? 1.1 : 1 }}
-                    transition={{ type: 'spring', damping: 10 }}>
+                    transition={springConfig}>
                     <Button
                       mode={selectedFace === face ? 'contained' : 'outlined'}
                       onPress={() => setSelectedFace(face)}
+                      disabled={queuedBet !== null}
                       style={[
                         styles.faceBtn,
                         selectedFace === face && { backgroundColor: '#FFC107' },
                       ]}
                       labelStyle={{
-                        color: selectedFace === face ? '#000' : colors.text,
+                        color: selectedFace === face ? '#000' : '#fff',
                         fontWeight: '700',
                       }}>
                       {face}
@@ -430,20 +551,23 @@ export default function HomeScreen() {
               {/* Actions + Countdown */}
               <View style={styles.actions}>
                 <Text style={styles.timerLabel}>
-                  Next auto–flip in{' '}
-                  <Text style={[styles.timerCount, { color: colors.primary }]}>{countdown}s</Text>
+                  {queuedBet ? `Executing bet in ${countdown}s` : `Next auto-flip in ${countdown}s`}
                 </Text>
 
                 <MotiView
                   from={{ shadowRadius: 5, shadowOpacity: 0.4 }}
                   animate={{ shadowRadius: [5, 20, 5], shadowOpacity: [0.4, 0.8, 0.4] }}
-                  transition={{ loop: true, type: 'timing', duration: 2000 }}
+                  transition={{ ...timingConfig, loop: true, duration: 2000 }}
                   style={[styles.flipGlow, { shadowColor: colors.primary }]}>
                   <Button
                     mode="contained"
                     onPress={handleFlip}
-                    disabled={flipping || simulating}
-                    style={[styles.flipBtn, { backgroundColor: colors.primary }]}
+                    disabled={flipping || simulating || queuedBet !== null}
+                    style={[
+                      styles.flipBtn,
+                      { backgroundColor: colors.primary },
+                      queuedBet && styles.disabledButton,
+                    ]}
                     labelStyle={{ color: '#000', fontWeight: 'bold', fontSize: 18 }}>
                     BET
                   </Button>
@@ -505,7 +629,7 @@ const styles = StyleSheet.create({
     width: 150,
     height: 150,
     borderRadius: 75,
-    perspective: 1000,
+    transform: [{ perspective: 1000 }],
     position: 'relative',
   },
   coinWrapper: {
@@ -597,4 +721,29 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
   },
   toastText: { color: '#000', fontWeight: '700', fontSize: 16, textAlign: 'center' },
+  disabledInput: {
+    opacity: 0.5,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+  },
+  disabledButton: {
+    opacity: 0.5,
+    backgroundColor: '#666',
+  },
+  amountContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  multiplierContainer: {
+    backgroundColor: '#FFC107',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    marginLeft: 8,
+  },
+  multiplierText: {
+    color: '#000',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
 });

@@ -48,18 +48,21 @@ export default function Register() {
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
+  const [referralId, setReferralId] = useState('');
 
   const [errors, setErrors] = useState({
     email: '',
     phone: '',
     password: '',
     confirm: '',
+    referralId: '',
   });
   const [shake, setShake] = useState({
     email: false,
     phone: false,
     password: false,
     confirm: false,
+    referralId: false,
   });
 
   const [menuVisible, setMenuVisible] = useState(false);
@@ -82,8 +85,8 @@ export default function Register() {
   }, [snackbar.show]);
 
   const validateAndSubmit = async () => {
-    const e = { email: '', phone: '', password: '', confirm: '' };
-    const s = { email: false, phone: false, password: false, confirm: false };
+    const e = { email: '', phone: '', password: '', confirm: '', referralId: '' };
+    const s = { email: false, phone: false, password: false, confirm: false, referralId: false };
     let ok = true;
 
     if (!email.includes('@')) {
@@ -110,7 +113,14 @@ export default function Register() {
     setErrors(e);
     setShake(s);
     setTimeout(
-      () => setShake({ email: false, phone: false, password: false, confirm: false }),
+      () =>
+        setShake({
+          email: false,
+          phone: false,
+          password: false,
+          confirm: false,
+          referralId: false,
+        }),
       500
     );
 
@@ -118,7 +128,7 @@ export default function Register() {
 
     setLoading(true);
     try {
-      await signup(email.trim(), countryCode + phone, password, confirm);
+      await signup(email.trim(), countryCode + phone, password, confirm, referralId);
       setSnackbar({ show: true, msg: 'Registered! Please log in.', type: 'success' });
       setTimeout(
         () =>
@@ -254,6 +264,15 @@ export default function Register() {
                 secure
                 error={errors.confirm}
                 shake={shake.confirm}
+              />
+
+              <FloatingInput
+                label="Referral ID (Optional)"
+                iconName="gift"
+                value={referralId}
+                onChangeText={setReferralId}
+                error={errors.referralId}
+                shake={shake.referralId}
               />
 
               <GradientButton onPress={validateAndSubmit} loading={loading}>

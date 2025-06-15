@@ -57,13 +57,15 @@ export async function signup(
   email: string,
   phone: string,
   password: string,
-  confirmPassword: string
+  confirmPassword: string,
+  referralId?: string
 ) {
   const resp = await apiClient.post('/auth/signup', {
     email,
     phone,
     password,
     confirmPassword,
+    ...(referralId && { referralId }),
   });
   // You can choose to return resp.data or some message
   return resp.data;
