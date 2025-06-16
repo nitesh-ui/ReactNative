@@ -234,7 +234,7 @@ export default function HomeScreen() {
           }
         }
 
-        setCountdown(20); // Reset timer after execution
+        setCountdown(15); // Reset timer after execution
       };
 
       executeSimulation();
