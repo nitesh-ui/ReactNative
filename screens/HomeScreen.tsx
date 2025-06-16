@@ -124,7 +124,7 @@ export default function HomeScreen() {
   }, [flipping]);
 
   // Countdown (drives simulation)
-  const [countdown, setCountdown] = useState(20);
+  const [countdown, setCountdown] = useState(15);
   useEffect(() => {
     if (countdown === 0) {
       const executeSimulation = async () => {
@@ -503,7 +503,7 @@ export default function HomeScreen() {
 
               {/* Amount */}
               <Text style={[styles.label, { color: '#fff' }]}>ENTER AMOUNT</Text>
-              <View style={styles.amountContainer}>
+              <View style={[styles.amountContainer, {justifyContent: 'center'}]}>
                 <TextInput
                   value={amount}
                   onChangeText={(t) => setAmount(t.replace(/[^0-9]/g, ''))}
