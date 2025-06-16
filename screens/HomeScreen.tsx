@@ -508,7 +508,11 @@ export default function HomeScreen() {
                   value={amount}
                   onChangeText={(t) => setAmount(t.replace(/[^0-9]/g, ''))}
                   keyboardType="numeric"
-                  style={[styles.amountInput, queuedBet && styles.disabledInput]}
+                  // style={[styles.amountInput, queuedBet && styles.disabledInput]}
+                  style={[
+                    styles.amountInput,
+                    (queuedBet || multiplier > 1) && styles.disabledInput,
+                  ]}
                   editable={!queuedBet}
                 />
                 {multiplier > 1 && (
@@ -664,6 +668,13 @@ const styles = StyleSheet.create({
   flag: { width: 60, height: 40, borderWidth: 2, borderColor: 'transparent' },
 
   label: { marginBottom: 6 },
+  amountContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    width: '100%',
+    justifyContent: 'center',
+  },
   amountInput: {
     backgroundColor: 'white',
     borderRadius: 10,
@@ -671,7 +682,22 @@ const styles = StyleSheet.create({
     fontSize: 18,
     width: '50%',
     textAlign: 'center',
-    marginBottom: 12,
+    marginBottom: 0,
+    height: 48,
+  },
+  multiplierContainer: {
+    backgroundColor: '#FFC107',
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    marginLeft: 8,
+    height: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  multiplierText: {
+    color: '#000',
+    fontWeight: 'bold',
+    fontSize: 18,
   },
 
   faceRow: {
@@ -728,22 +754,5 @@ const styles = StyleSheet.create({
   disabledButton: {
     opacity: 0.5,
     backgroundColor: '#666',
-  },
-  amountContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  multiplierContainer: {
-    backgroundColor: '#FFC107',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-    marginLeft: 8,
-  },
-  multiplierText: {
-    color: '#000',
-    fontWeight: 'bold',
-    fontSize: 16,
   },
 });
