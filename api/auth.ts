@@ -5,9 +5,9 @@ export function setAuthToken(token: string) {
   apiClient.defaults.headers.common.Authorization = `Bearer ${token}`;
 }
 
-export async function login(email: string, password: string) {
-  const resp = await apiClient.post('auth/login', { email, password });
-  const { token, userId, username } = resp.data;
+export async function login(userEmail: string, password: string) {
+  const resp = await apiClient.post('auth/login', { email: userEmail, password });
+  const { token, userId, username, phone, email } = resp.data;
 
   if (!token) {
     throw new Error('Login failed: no token received');
@@ -19,9 +19,15 @@ export async function login(email: string, password: string) {
   if (username) {
     await AsyncStorage.setItem('username', username);
   }
+  if (phone) {
+    await AsyncStorage.setItem('phone', phone);
+  }
+  if (email) {
+    await AsyncStorage.setItem('email', email);
+  }
 
   setAuthToken(token);
-  return { token, userId, username };
+  return { token, userId, username, phone, email };
 }
 
 export async function signup(

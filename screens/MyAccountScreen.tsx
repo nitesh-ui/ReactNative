@@ -1,5 +1,5 @@
 // screens/MyAccountScreen.tsx
-import React from 'react';
+import React, { useContext } from 'react';
 import {
   View,
   StyleSheet,
@@ -18,6 +18,7 @@ import type { RootStackParamList } from '../navigation/AppNavigator';
 import { Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import GradientButton from '../components/GradientButton';
+import { AuthContext } from '../context/AuthContext';
 
 const { width } = Dimensions.get('window');
 
@@ -25,7 +26,7 @@ export default function MyAccountScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
-
+  const { username, email, phone, logout } = useContext(AuthContext);
   const userInfo = {
     fullName: 'Devon Lane',
     email: 'devon@gmail.com',
@@ -41,7 +42,7 @@ export default function MyAccountScreen() {
         resizeMode="cover">
         {/* header */}
         <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
-          <TouchableOpacity onPress={() => navigation.goBack()}>
+          <TouchableOpacity onPress={() => navigation.navigate('HomeScreen')}>
             <Feather name="arrow-left" size={24} color="#fff" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>My Profile</Text>
@@ -53,25 +54,25 @@ export default function MyAccountScreen() {
             <View style={styles.profileRow}>
               <Image source={userInfo.avatar} style={styles.avatar} />
               <View style={styles.nameEmail}>
-                <Text style={styles.name}>{userInfo.fullName}</Text>
-                <Text style={styles.email}>{userInfo.email}</Text>
+                <Text style={styles.name}>{username ?? '-'}</Text>
+                <Text style={styles.email}>{email ?? '-'}</Text>
               </View>
             </View>
 
             {/* user information */}
             <View style={styles.field}>
               <Text style={styles.fieldLabel}>Full Name</Text>
-              <Text style={styles.fieldValue}>{userInfo.fullName}</Text>
+              <Text style={styles.fieldValue}>{username ?? '-'}</Text>
             </View>
 
             <View style={styles.field}>
               <Text style={styles.fieldLabel}>Email</Text>
-              <Text style={styles.fieldValue}>{userInfo.email}</Text>
+              <Text style={styles.fieldValue}>{email}</Text>
             </View>
 
             <View style={styles.field}>
-              <Text style={styles.fieldLabel}>Referral Code</Text>
-              <Text style={styles.fieldValue}>{userInfo.referCode}</Text>
+              <Text style={styles.fieldLabel}>Phone </Text>
+              <Text style={styles.fieldValue}>{phone ?? '-'}</Text>
             </View>
 
             {/* logout button */}

@@ -103,7 +103,7 @@ export default function HelpScreen() {
           <TouchableOpacity onPress={() => navigation.navigate('HomeScreen')}>
             <MaterialIcons name="arrow-back" size={24} color="#fff" />
           </TouchableOpacity>
-          <UserDropdown />
+          <UserDropdown username={userId ?? '-'} />
         </View>
 
         <KeyboardAvoidingView
