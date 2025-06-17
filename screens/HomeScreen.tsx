@@ -50,6 +50,15 @@ const countryFlags = [
   { code: 'JP', symbol: '¥', value: 30, flag: require('../assets/jp.png') },
 ];
 
+// Define message types and interfaces
+type MessageGroup = 'bet_result' | 'simulation' | 'takeout' | 'error' | 'info';
+interface SnackbarMessage {
+  id: string;
+  message: string;
+  group: MessageGroup;
+  timestamp: number;
+}
+
 export default function HomeScreen() {
   const { colors } = useTheme();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -111,10 +120,7 @@ export default function HomeScreen() {
 
   // Confetti & snackbar
   const [showConfetti, setShowConfetti] = useState(false);
-  const [snackbar, setSnackbar] = useState<{ visible: boolean; message: string }>({
-    visible: false,
-    message: '',
-  });
+  const [snackbarMessages, setSnackbarMessages] = useState<SnackbarMessage[]>([]);
 
   // Prevent hardware back during flip/sim
   const [simulating, setSimulating] = useState(false);
@@ -125,140 +131,50 @@ export default function HomeScreen() {
 
   // Countdown (drives simulation)
   const [countdown, setCountdown] = useState(15);
-  useEffect(() => {
-    if (countdown === 0) {
-      const executeSimulation = async () => {
-        if (!queuedBet) {
-          // No bet queued - just do animation and simulation
-          await flipSound?.replayAsync();
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-          setFlipping(true);
-          setRotation((r) => r + 720);
-
-          // Random result for animation
-          setFlipResult(Math.random() > 0.5 ? 'HEAD' : 'TAIL');
-
-          // Wait for flip animation
-          await new Promise((resolve) => setTimeout(resolve, 800));
-          setFlipping(false);
-
-          // Run fake wins simulation
-          setSimulating(true);
-          for (let i = 0; i < 5; i++) {
-            setSnackbar({ visible: true, message: `${genId()} won!` });
-            await new Promise((r) => setTimeout(r, 1200));
-            setSnackbar((s) => ({ ...s, visible: false }));
-            await new Promise((r) => setTimeout(r, 200));
-          }
-          setSimulating(false);
-        } else {
-          // Execute real bet
-          try {
-            // Convert multiplied bet to INR for server
-            const inrBet = await convertAmount(queuedBet.amount, queuedBet.countryCode, 'IN');
-
-            // Start animation
-            await flipSound?.replayAsync();
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-            setFlipping(true);
-            setRotation((r) => r + 720);
-
-            try {
-              // Make API call while animation is running
-              const { data } = await apiClient.post(
-                '/play/flip',
-                {
-                  userId,
-                  face: queuedBet.face.toLowerCase(),
-                  amount: Math.round(inrBet),
-                },
-                { headers: { Authorization: `Bearer ${userToken}` } }
-              );
-
-              console.log('data', data);
-
-              // Wait for flip animation to complete
-              await new Promise((resolve) => setTimeout(resolve, 800));
-
-              // Update game state
-              setFlipResult(data.coinFlip.toUpperCase());
-              setCurrentBalance(data.currentBalance);
-              setWalletBalance(data.walletBalance);
-
-              // Complete animation
-              setFlipping(false);
-
-              const won = data.result === 'win';
-              if (won) {
-                setConsecutiveWins((prev) => {
-                  const newWins = prev + 1;
-                  // Update multiplier based on consecutive wins
-                  if (newWins === 1) setMultiplier(2);
-                  else if (newWins === 2) setMultiplier(5);
-                  else if (newWins >= 3) setMultiplier(10);
-                  return newWins;
-                });
-                setShowConfetti(true);
-                setTimeout(() => setShowConfetti(false), 3000);
-              } else {
-                // Reset on loss
-                setConsecutiveWins(0);
-                setMultiplier(1);
-              }
-              await playEffect(won ? winSound : loseSound);
-
-              // Run fake wins simulation after real bet
-              setSimulating(true);
-              for (let i = 0; i < 5; i++) {
-                setSnackbar({ visible: true, message: `${genId()} won!` });
-                await new Promise((r) => setTimeout(r, 1200));
-                setSnackbar((s) => ({ ...s, visible: false }));
-                await new Promise((r) => setTimeout(r, 200));
-              }
-              setSimulating(false);
-            } catch (error) {
-              // Ensure animation completes even on error
-              await new Promise((resolve) => setTimeout(resolve, 800));
-              setFlipping(false);
-              setSnackbar({ visible: true, message: 'Could not play flip.' });
-            } finally {
-              setQueuedBet(null); // Clear the queued bet
-            }
-          } catch (err) {
-            console.error('Bet conversion error:', err);
-            setSnackbar({ visible: true, message: 'Currency conversion failed.' });
-            setQueuedBet(null); // Clear the queued bet on error
-            // Ensure animation completes on conversion error
-            await new Promise((resolve) => setTimeout(resolve, 800));
-            setFlipping(false);
-          }
-        }
-
-        setCountdown(15); // Reset timer after execution
-      };
-
-      executeSimulation();
-    } else {
-      const timer = setTimeout(() => setCountdown((c) => c - 1), 1000);
-      return () => clearTimeout(timer);
-    }
-  }, [
-    countdown,
-    queuedBet,
-    convertAmount,
-    flipSound,
-    playEffect,
-    winSound,
-    loseSound,
-    userToken,
-    userId,
-  ]);
 
   // Generate random ID for fake wins
   const genId = () =>
     Array.from({ length: 6 })
       .map(() => 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'.charAt(Math.random() * 36))
       .join('');
+
+  // Generate multiple random IDs at once
+  const genMultipleIds = (count: number) => {
+    return Array.from({ length: count }, () => genId()).join(', ');
+  };
+
+  // Updated showSnackbar function to handle groups
+  const showSnackbar = (message: string, group: MessageGroup = 'info') => {
+    const newMessage: SnackbarMessage = {
+      id: genId(),
+      message,
+      group,
+      timestamp: Date.now(),
+    };
+
+    setSnackbarMessages((prev) => [...prev, newMessage]);
+
+    // Remove message after timeout
+    setTimeout(() => {
+      setSnackbarMessages((prev) => prev.filter((msg) => msg.id !== newMessage.id));
+    }, 3000);
+  };
+
+  // Helper to get group color
+  const getGroupColor = (group: MessageGroup): [string, string] => {
+    switch (group) {
+      case 'bet_result':
+        return ['#4CAF50', '#81C784']; // Green for user's bet results
+      case 'simulation':
+        return ['#2196F3', '#64B5F6']; // Blue for simulation results
+      case 'takeout':
+        return ['#9C27B0', '#BA68C8'];
+      case 'error':
+        return ['#F44336', '#E57373'];
+      default:
+        return ['#FF6F91', '#FF9671'];
+    }
+  };
 
   // Fetch balances once
   const fetchBalance = useCallback(async () => {
@@ -271,7 +187,7 @@ export default function HomeScreen() {
       setWalletBalance(resp.data.walletBalance);
       setCurrentBalance(resp.data.currentBalance);
     } catch {
-      setSnackbar({ visible: true, message: 'Could not fetch balance.' });
+      showSnackbar('Could not fetch balance.', 'error');
     }
   }, [userId, userToken]);
   useEffect(() => {
@@ -336,16 +252,12 @@ export default function HomeScreen() {
   const handleCountryChange = async (c: (typeof countryFlags)[0]) => {
     // Prevent country change if there's pending amount, active multiplier, or queued bet
     if (currentBalance !== 0 || multiplier > 1 || queuedBet) {
-      setSnackbar({ visible: true, message: 'Cannot change currency while bet is in progress' });
-      setTimeout(() => {
-        setSnackbar((s) => ({ ...s, visible: false }));
-      }, 3000);
+      showSnackbar('Cannot change currency while bet is in progress', 'error');
       return;
     }
 
     try {
       if (selectedCountry.code !== c.code && amount) {
-        // Convert current bet amount to new currency
         const convertedAmount = await convertAmount(
           parseInt(amount, 10),
           selectedCountry.code,
@@ -356,60 +268,50 @@ export default function HomeScreen() {
       setSelectedCountry(c);
     } catch (err) {
       console.error('Amount conversion error:', err);
-      // If conversion fails, use default amount for the selected country
       setAmount(getDefaultAmount(c.code).toString());
+      showSnackbar('Failed to convert amount. Using default value.', 'error');
     }
   };
 
-  // Modify handleFlip to include client-side validation
+  // Update handleFlip to use bet_result group for queued bet message
   const handleFlip = async () => {
     const localBet = parseInt(amount, 10) || 0;
-    const multipliedBet = localBet * multiplier; // Calculate actual bet amount
+    const multipliedBet = localBet * multiplier;
 
     if (localBet < MIN_BET) {
-      setSnackbar({ visible: true, message: `Min bet is ${selectedCountry.symbol}${MIN_BET}` });
-      setTimeout(() => {
-        setSnackbar((s) => ({ ...s, visible: false }));
-      }, 3000);
+      showSnackbar(`Min bet is ${selectedCountry.symbol}${MIN_BET}`, 'error');
       return;
     }
 
-    // Client-side balance validation
     const availableBalance = walletBalance - Math.abs(currentBalance);
     if (multipliedBet > availableBalance) {
-      setSnackbar({
-        visible: true,
-        message: `Insufficient balance. Available: ${selectedCountry.symbol}${availableBalance}`,
-      });
-      setTimeout(() => {
-        setSnackbar((s) => ({ ...s, visible: false }));
-      }, 3000);
+      showSnackbar(
+        `Insufficient balance. Available: ${selectedCountry.symbol}${availableBalance}`,
+        'error'
+      );
       return;
     }
 
     if (queuedBet) {
-      setSnackbar({ visible: true, message: 'A bet is already queued' });
-      setTimeout(() => {
-        setSnackbar((s) => ({ ...s, visible: false }));
-      }, 3000);
+      showSnackbar('A bet is already queued', 'error');
       return;
     }
 
-    // Queue the bet with multiplied amount
     setQueuedBet({
       amount: multipliedBet,
       face: selectedFace,
       countryCode: selectedCountry.code,
     });
 
-    setSnackbar({
-      visible: true,
-      message: `Bet queued! ${selectedCountry.symbol}${localBet}${multiplier > 1 ? ` (X${multiplier} = ${selectedCountry.symbol}${multipliedBet})` : ''} will execute in ${countdown} seconds`,
-    });
+    showSnackbar(
+      `Bet queued! ${selectedCountry.symbol}${localBet}${multiplier > 1 ? ` (X${multiplier} = ${selectedCountry.symbol}${multipliedBet})` : ''} will execute in ${countdown} seconds`,
+      'bet_result'
+    );
+  };
 
-    setTimeout(() => {
-      setSnackbar((s) => ({ ...s, visible: false }));
-    }, 3000);
+  // Update simulation messages
+  const showSimulationWin = (id: string) => {
+    showSnackbar(`${id} won!`, 'simulation');
   };
 
   // Add loading state for takeout
@@ -428,31 +330,151 @@ export default function HomeScreen() {
       setWalletBalance(data.walletBalance);
       setCurrentBalance(data.currentBalance);
 
-      // Reset multiplier and consecutive wins on successful takeout
       setMultiplier(1);
       setConsecutiveWins(0);
 
-      // Show success message
-      setSnackbar({ visible: true, message: 'Successfully claimed your winnings!' });
-
-      // Auto-hide snackbar after 3 seconds
-      setTimeout(() => {
-        setSnackbar((s) => ({ ...s, visible: false }));
-      }, 3000);
+      showSnackbar('Successfully claimed your winnings!', 'takeout');
     } catch {
-      // Show error message
-      setSnackbar({ visible: true, message: 'Failed to claim winnings. Please try again.' });
-
-      // Auto-hide error message after 3 seconds
-      setTimeout(() => {
-        setSnackbar((s) => ({ ...s, visible: false }));
-      }, 3000);
+      showSnackbar('Failed to claim winnings. Please try again.', 'error');
     } finally {
       setTakeoutLoading(false);
     }
   };
 
   const { head, tail } = coinImages[selectedCountry.code];
+
+  // Update countdown effect to handle simulation results better
+  useEffect(() => {
+    if (countdown === 0) {
+      const executeSimulation = async () => {
+        if (!queuedBet) {
+          // No bet queued - just do animation and simulation
+          await flipSound?.replayAsync();
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+          setFlipping(true);
+          setRotation((r) => r + 720);
+
+          // Random result for animation
+          setFlipResult(Math.random() > 0.5 ? 'HEAD' : 'TAIL');
+
+          // Wait for flip animation
+          await new Promise((resolve) => setTimeout(resolve, 800));
+          setFlipping(false);
+
+          // Run fake wins simulation with single message
+          setSimulating(true);
+          showSnackbar(`Recent Winners: ${genMultipleIds(5)}`, 'simulation');
+          await new Promise((r) => setTimeout(r, 3000));
+          setSimulating(false);
+        } else {
+          // Execute real bet
+          try {
+            // Convert multiplied bet to INR for server
+            const inrBet = await convertAmount(queuedBet.amount, queuedBet.countryCode, 'IN');
+
+            // Start animation
+            await flipSound?.replayAsync();
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+            setFlipping(true);
+            setRotation((r) => r + 720);
+
+            try {
+              // Make API call while animation is running
+              const { data } = await apiClient.post(
+                '/play/flip',
+                {
+                  userId,
+                  face: queuedBet.face.toLowerCase(),
+                  amount: Math.round(inrBet),
+                },
+                { headers: { Authorization: `Bearer ${userToken}` } }
+              );
+
+              // Wait for flip animation to complete
+              await new Promise((resolve) => setTimeout(resolve, 800));
+
+              // Update game state
+              setFlipResult(data.coinFlip.toUpperCase());
+              setCurrentBalance(data.currentBalance);
+              setWalletBalance(data.walletBalance);
+
+              // Complete animation
+              setFlipping(false);
+
+              const won = data.result === 'win';
+              if (won) {
+                setConsecutiveWins((prev) => {
+                  const newWins = prev + 1;
+                  // Update multiplier based on consecutive wins
+                  if (newWins === 1) setMultiplier(2);
+                  else if (newWins === 2) setMultiplier(5);
+                  else if (newWins >= 3) setMultiplier(10);
+                  return newWins;
+                });
+                setShowConfetti(true);
+                setTimeout(() => setShowConfetti(false), 3000);
+
+                // Show user's bet result
+                showSnackbar(
+                  `You won! ${selectedCountry.symbol}${queuedBet.amount} on ${queuedBet.face}`,
+                  'bet_result'
+                );
+              } else {
+                // Reset on loss
+                setConsecutiveWins(0);
+                setMultiplier(1);
+
+                // Show user's bet result
+                showSnackbar(
+                  `You lost ${selectedCountry.symbol}${queuedBet.amount} on ${queuedBet.face}`,
+                  'bet_result'
+                );
+              }
+              await playEffect(won ? winSound : loseSound);
+
+              // Run fake wins simulation after real bet with single message
+              setSimulating(true);
+              showSnackbar(`Recent Winners: ${genMultipleIds(5)}`, 'simulation');
+              await new Promise((r) => setTimeout(r, 3000));
+              setSimulating(false);
+            } catch (error) {
+              // Ensure animation completes even on error
+              await new Promise((resolve) => setTimeout(resolve, 800));
+              setFlipping(false);
+              showSnackbar('Could not play flip.', 'error');
+            } finally {
+              setQueuedBet(null); // Clear the queued bet
+            }
+          } catch (err) {
+            console.error('Bet conversion error:', err);
+            showSnackbar('Currency conversion failed.', 'error');
+            setQueuedBet(null); // Clear the queued bet on error
+            // Ensure animation completes on conversion error
+            await new Promise((resolve) => setTimeout(resolve, 800));
+            setFlipping(false);
+          }
+        }
+
+        setCountdown(15); // Reset timer after execution
+      };
+
+      executeSimulation();
+    } else {
+      const timer = setTimeout(() => setCountdown((c) => c - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [
+    countdown,
+    queuedBet,
+    convertAmount,
+    flipSound,
+    playEffect,
+    winSound,
+    loseSound,
+    userToken,
+    userId,
+    selectedCountry.symbol,
+  ]);
 
   return (
     <KeyboardAvoidingView
@@ -650,23 +672,27 @@ export default function HomeScreen() {
             </View>
           </View>
 
-          {/* Snackbar */}
-          {snackbar.visible && (
-            <MotiView
-              from={{ scale: 0.8, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.8, opacity: 0 }}
-              transition={{ type: 'spring', damping: 10 }}
-              style={styles.toastContainer}>
-              <LinearGradient
-                colors={['#FF6F91', '#FF9671']}
-                start={[0, 0]}
-                end={[1, 1]}
-                style={styles.toastGradient}>
-                <Text style={styles.toastText}>{snackbar.message}</Text>
-              </LinearGradient>
-            </MotiView>
-          )}
+          {/* Stacked Snackbars */}
+          <View style={styles.snackbarContainer}>
+            {snackbarMessages.map((msg) => (
+              <MotiView
+                key={msg.id}
+                from={{ scale: 0.8, opacity: 0, translateY: -20 }}
+                animate={{ scale: 1, opacity: 1, translateY: 0 }}
+                exit={{ scale: 0.8, opacity: 0, translateY: -20 }}
+                transition={{ type: 'spring', damping: 10 }}
+                style={styles.toastContainer}>
+                <LinearGradient
+                  colors={getGroupColor(msg.group)}
+                  start={[0, 0]}
+                  end={[1, 1]}
+                  style={styles.toastGradient}>
+                  <Text style={styles.toastText}>{msg.message}</Text>
+                </LinearGradient>
+              </MotiView>
+            ))}
+          </View>
+
           {showConfetti && (
             <ConfettiCannon count={300} origin={{ x: screenWidth / 2, y: 0 }} fadeOut />
           )}
@@ -791,13 +817,18 @@ const styles = StyleSheet.create({
   },
   takeoutLabel: { color: '#fff', fontWeight: '600' },
 
-  toastContainer: {
+  snackbarContainer: {
     position: 'absolute',
     top: 32,
     left: 0,
     right: 0,
     alignItems: 'center',
     zIndex: 10,
+    gap: 8, // Space between stacked messages
+  },
+  toastContainer: {
+    width: '90%',
+    maxWidth: 400,
   },
   toastGradient: {
     paddingHorizontal: 24,

@@ -19,6 +19,7 @@ import { Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import GradientButton from '../components/GradientButton';
 import { AuthContext } from '../context/AuthContext';
+import UserDropdown from 'components/UserDropdown';
 
 const { width } = Dimensions.get('window');
 
@@ -26,7 +27,7 @@ export default function MyAccountScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
-  const { username, email, phone, logout } = useContext(AuthContext);
+  const { userId, username, email, phone, logout } = useContext(AuthContext);
   const userInfo = {
     fullName: 'Devon Lane',
     email: 'devon@gmail.com',
@@ -42,10 +43,15 @@ export default function MyAccountScreen() {
         resizeMode="cover">
         {/* header */}
         <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
-          <TouchableOpacity onPress={() => navigation.navigate('HomeScreen')}>
+          <TouchableOpacity
+            onPress={() => navigation.navigate('HomeScreen')}
+            style={styles.backButton}>
             <Feather name="arrow-left" size={24} color="#fff" />
           </TouchableOpacity>
+
           <Text style={styles.headerTitle}>My Profile</Text>
+
+          <UserDropdown username={username || userId || 'USER'} />
         </View>
 
         <ScrollView contentContainerStyle={styles.scrollContent}>
@@ -101,14 +107,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 8,
     backgroundColor: 'transparent',
+    justifyContent: 'space-between',
+  },
+  backButton: {
+    width: 40, // Fixed width to balance with UserDropdown
+    alignItems: 'flex-start',
   },
   headerTitle: {
-    flex: 1,
-    textAlign: 'center',
     fontSize: 20,
     fontWeight: '700',
     color: '#fff',
-    marginRight: 24,
+    textAlign: 'center',
+    flex: 1,
   },
 
   scrollContent: {
