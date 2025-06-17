@@ -45,7 +45,7 @@ export default function HelpScreen() {
     setLoading(true);
     try {
       await axios.post(
-        'https://ftbtest1.onrender.com/api/help/submit',
+        'https://backend-s5bj.onrender.com/api/help/submit',
         {
           userId,
           subject: subject.trim(),

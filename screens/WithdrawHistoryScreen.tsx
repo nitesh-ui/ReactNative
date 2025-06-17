@@ -55,14 +55,12 @@ export default function WithdrawHistoryScreen() {
     async function fetchHistory() {
       try {
         setLoading(true);
-        const resp = await apiClient.get<WithdrawRecord[]>(
-          `https://ftbtest1.onrender.com/api/withdraw/history/${userId}`,
-          {
-            headers: {
-              Authorization: `Bearer ${userToken}`,
-            },
-          }
-        );
+        const resp = await apiClient.get(`withdraw/history/${userId}`, {
+          headers: {
+            Authorization: `Bearer ${userToken}`,
+          },
+        });
+        console.log('Response:', resp);
         // Sort descending by createdAt
         const sorted = resp.data.sort(
           (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()

@@ -19,6 +19,7 @@ import type { RootStackParamList } from '../navigation/AppNavigator';
 
 import UserDropdown from '../components/UserDropdown';
 import { AuthContext } from '../context/AuthContext';
+import apiClient from 'api/client';
 
 type DepositItem = {
   _id: string;
@@ -42,18 +43,16 @@ export default function DepositHistoryScreen() {
     async function fetchHistory() {
       try {
         setLoading(true);
-        const resp = await fetch(`https://ftbtest1.onrender.com/api/deposit/history/${userId}`, {
-          method: 'GET',
+        const resp = await apiClient.get(`deposit/history/${userId}`, {
           headers: {
             Authorization: `Bearer ${userToken}`,
           },
         });
         console.log('Response:', resp);
-        if (!resp.ok) throw new Error('Failed to load history');
-        const data: DepositItem[] = await resp.json();
+
         // sort by createdAt descending
-        data.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-        setHistory(data);
+        resp.data.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        setHistory(resp.data);
       } catch (e: any) {
         setError(e.message || 'Error fetching data');
       } finally {

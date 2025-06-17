@@ -106,7 +106,7 @@ export default function WithdrawalScreen() {
     setLoading(true);
 
     try {
-      const resp = await fetch('https://ftbtest1.onrender.com/api/withdraw/request', {
+      const resp = await fetch(' https://backend-s5bj.onrender.com/api/withdraw/request', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

@@ -56,7 +56,7 @@ export default function DepositScreen() {
     } as any);
 
     try {
-      const resp = await fetch('https://ftbtest1.onrender.com/api/deposit/request', {
+      const resp = await fetch('https://backend-s5bj.onrender.com/api/deposit/request', {
         method: 'POST',
         headers: {
           'Content-Type': 'multipart/form-data',

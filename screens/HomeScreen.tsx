@@ -503,7 +503,7 @@ export default function HomeScreen() {
 
               {/* Amount */}
               <Text style={[styles.label, { color: '#fff' }]}>ENTER AMOUNT</Text>
-              <View style={[styles.amountContainer, {justifyContent: 'center'}]}>
+              <View style={[styles.amountContainer, { justifyContent: 'center' }]}>
                 <TextInput
                   value={amount}
                   onChangeText={(t) => setAmount(t.replace(/[^0-9]/g, ''))}
