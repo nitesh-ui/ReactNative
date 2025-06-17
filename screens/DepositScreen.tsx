@@ -82,7 +82,7 @@ export default function DepositScreen() {
         resizeMode="cover">
         {/* Header with Back + Dropdown */}
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()}>
+          <TouchableOpacity onPress={() => navigation.navigate('HomeScreen')}>
             <MaterialIcons name="arrow-back" size={24} color="#fff" />
           </TouchableOpacity>
           <UserDropdown username={userId || 'USER'} />

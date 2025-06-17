@@ -156,7 +156,7 @@ export default function WithdrawalScreen() {
       <ImageBackground source={require('../assets/bg1.jpg')} style={{ flex: 1 }} resizeMode="cover">
         {/* Top Bar */}
         <View style={styles.topBar}>
-          <TouchableOpacity onPress={() => navigation.goBack()}>
+          <TouchableOpacity onPress={() => navigation.navigate('HomeScreen')}>
             <Feather name="arrow-left" size={24} color="#fff" />
           </TouchableOpacity>
           <UserDropdown username={username ?? userId} />

@@ -97,7 +97,7 @@ export default function DepositHistoryScreen() {
         resizeMode="cover">
         {/* Top Bar */}
         <View style={styles.topBar}>
-          <TouchableOpacity onPress={() => navigation.goBack()}>
+          <TouchableOpacity onPress={() => navigation.navigate('HomeScreen')}>
             <MaterialIcons name="arrow-back" size={24} color="#fff" />
           </TouchableOpacity>
           <UserDropdown username={userId} />

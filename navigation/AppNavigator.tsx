@@ -11,7 +11,6 @@ import DepositScreen from 'screens/DepositScreen';
 import WithdrawalScreen from 'screens/WithdrawlScreen';
 import MyAccountScreen from 'screens/MyAccountScreen';
 import LandingScreen from 'screens/LandinScreen';
-import HomeScreen2 from 'screens/HomeScreen2';
 import DepositHistoryScreen from 'screens/DepositHistoryScreen';
 import WithdrawHistoryScreen from 'screens/WithdrawHistoryScreen';
 import HelpScreen from 'screens/HelpScreen';
@@ -55,7 +54,6 @@ export default function AppNavigator({ initialRouteName = 'Login' }: Props) {
       <Stack.Screen name="DepositScreen" component={DepositScreen} />
       <Stack.Screen name="WithdrawlScreen" component={WithdrawalScreen} />
       <Stack.Screen name="MyAccount" component={MyAccountScreen} />
-      {/* <Stack.Screen name="HomeScreen2" component={HomeScreen2} /> */}
       <Stack.Screen name="DepositHistoryScreen" component={DepositHistoryScreen} />
       <Stack.Screen name="WithdrawHistoryScreen" component={WithdrawHistoryScreen} />
       <Stack.Screen name="HelpScreen" component={HelpScreen} />
