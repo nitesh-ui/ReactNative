@@ -334,6 +334,15 @@ export default function HomeScreen() {
 
   // Country change handler with amount conversion
   const handleCountryChange = async (c: (typeof countryFlags)[0]) => {
+    // Prevent country change if there's pending amount, active multiplier, or queued bet
+    if (currentBalance !== 0 || multiplier > 1 || queuedBet) {
+      setSnackbar({ visible: true, message: 'Cannot change currency while bet is in progress' });
+      setTimeout(() => {
+        setSnackbar((s) => ({ ...s, visible: false }));
+      }, 3000);
+      return;
+    }
+
     try {
       if (selectedCountry.code !== c.code && amount) {
         // Convert current bet amount to new currency
@@ -352,24 +361,43 @@ export default function HomeScreen() {
     }
   };
 
-  // Modify handleFlip to auto-hide snackbar
+  // Modify handleFlip to include client-side validation
   const handleFlip = async () => {
     const localBet = parseInt(amount, 10) || 0;
     const multipliedBet = localBet * multiplier; // Calculate actual bet amount
 
     if (localBet < MIN_BET) {
       setSnackbar({ visible: true, message: `Min bet is ${selectedCountry.symbol}${MIN_BET}` });
+      setTimeout(() => {
+        setSnackbar((s) => ({ ...s, visible: false }));
+      }, 3000);
+      return;
+    }
+
+    // Client-side balance validation
+    const availableBalance = walletBalance - Math.abs(currentBalance);
+    if (multipliedBet > availableBalance) {
+      setSnackbar({
+        visible: true,
+        message: `Insufficient balance. Available: ${selectedCountry.symbol}${availableBalance}`,
+      });
+      setTimeout(() => {
+        setSnackbar((s) => ({ ...s, visible: false }));
+      }, 3000);
       return;
     }
 
     if (queuedBet) {
       setSnackbar({ visible: true, message: 'A bet is already queued' });
+      setTimeout(() => {
+        setSnackbar((s) => ({ ...s, visible: false }));
+      }, 3000);
       return;
     }
 
     // Queue the bet with multiplied amount
     setQueuedBet({
-      amount: multipliedBet, // Store multiplied amount
+      amount: multipliedBet,
       face: selectedFace,
       countryCode: selectedCountry.code,
     });
@@ -379,15 +407,18 @@ export default function HomeScreen() {
       message: `Bet queued! ${selectedCountry.symbol}${localBet}${multiplier > 1 ? ` (X${multiplier} = ${selectedCountry.symbol}${multipliedBet})` : ''} will execute in ${countdown} seconds`,
     });
 
-    // Auto-hide snackbar after 3 seconds
     setTimeout(() => {
       setSnackbar((s) => ({ ...s, visible: false }));
     }, 3000);
   };
 
-  // Takeout
+  // Add loading state for takeout
+  const [takeoutLoading, setTakeoutLoading] = useState(false);
+
+  // Modify takeout handler
   const handleTakeout = async () => {
     if (!currentBalance) return;
+    setTakeoutLoading(true);
     try {
       const { data } = await apiClient.post(
         '/balance/takeout',
@@ -396,22 +427,39 @@ export default function HomeScreen() {
       );
       setWalletBalance(data.walletBalance);
       setCurrentBalance(data.currentBalance);
+
+      // Reset multiplier and consecutive wins on successful takeout
+      setMultiplier(1);
+      setConsecutiveWins(0);
+
+      // Show success message
+      setSnackbar({ visible: true, message: 'Successfully claimed your winnings!' });
+
+      // Auto-hide snackbar after 3 seconds
+      setTimeout(() => {
+        setSnackbar((s) => ({ ...s, visible: false }));
+      }, 3000);
     } catch {
-      setSnackbar({ visible: true, message: 'Could not take out.' });
+      // Show error message
+      setSnackbar({ visible: true, message: 'Failed to claim winnings. Please try again.' });
+
+      // Auto-hide error message after 3 seconds
+      setTimeout(() => {
+        setSnackbar((s) => ({ ...s, visible: false }));
+      }, 3000);
+    } finally {
+      setTakeoutLoading(false);
     }
   };
 
   const { head, tail } = coinImages[selectedCountry.code];
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top', 'bottom']}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={{ flex: 1 }}>
-        <ImageBackground
-          source={require('../assets/bg1.jpg')}
-          style={{ flex: 1 }}
-          resizeMode="cover">
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      style={{ flex: 1 }}>
+      <ImageBackground source={require('../assets/bg1.jpg')} style={{ flex: 1 }} resizeMode="cover">
+        <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
           <View style={styles.container}>
             {/* Top Bar */}
             <View style={styles.topBar}>
@@ -487,7 +535,13 @@ export default function HomeScreen() {
               {/* Flags */}
               <View style={styles.countryRow}>
                 {countryFlags.map((c) => (
-                  <TouchableOpacity key={c.code} onPress={() => handleCountryChange(c)}>
+                  <TouchableOpacity
+                    key={c.code}
+                    onPress={() => handleCountryChange(c)}
+                    disabled={Boolean(currentBalance !== 0 || multiplier > 1 || queuedBet)}
+                    style={{
+                      opacity: currentBalance !== 0 || multiplier > 1 || queuedBet ? 0.5 : 1,
+                    }}>
                     <Image
                       source={c.flag}
                       style={[
@@ -506,14 +560,15 @@ export default function HomeScreen() {
               <View style={[styles.amountContainer, { justifyContent: 'center' }]}>
                 <TextInput
                   value={amount}
-                  onChangeText={(t) => setAmount(t.replace(/[^0-9]/g, ''))}
+                  onChangeText={(t) =>
+                    !queuedBet && multiplier === 1 ? setAmount(t.replace(/[^0-9]/g, '')) : null
+                  }
                   keyboardType="numeric"
-                  // style={[styles.amountInput, queuedBet && styles.disabledInput]}
                   style={[
                     styles.amountInput,
                     (queuedBet || multiplier > 1) && styles.disabledInput,
                   ]}
-                  editable={!queuedBet}
+                  editable={!queuedBet && multiplier === 1}
                 />
                 {multiplier > 1 && (
                   <MotiView
@@ -537,10 +592,11 @@ export default function HomeScreen() {
                     <Button
                       mode={selectedFace === face ? 'contained' : 'outlined'}
                       onPress={() => setSelectedFace(face)}
-                      disabled={queuedBet !== null}
+                      disabled={queuedBet !== null || simulating || flipping}
                       style={[
                         styles.faceBtn,
                         selectedFace === face && { backgroundColor: '#FFC107' },
+                        (queuedBet !== null || simulating || flipping) && styles.disabledButton,
                       ]}
                       labelStyle={{
                         color: selectedFace === face ? '#000' : '#fff',
@@ -570,7 +626,7 @@ export default function HomeScreen() {
                     style={[
                       styles.flipBtn,
                       { backgroundColor: colors.primary },
-                      queuedBet && styles.disabledButton,
+                      (flipping || simulating || queuedBet !== null) && styles.disabledButton,
                     ]}
                     labelStyle={{ color: '#000', fontWeight: 'bold', fontSize: 18 }}>
                     BET
@@ -580,10 +636,15 @@ export default function HomeScreen() {
                 <Button
                   mode="outlined"
                   onPress={handleTakeout}
-                  disabled={currentBalance === 0 || simulating}
-                  style={styles.takeoutBtn}
+                  disabled={currentBalance === 0 || simulating || flipping || takeoutLoading}
+                  loading={takeoutLoading}
+                  style={[
+                    styles.takeoutBtn,
+                    (currentBalance === 0 || simulating || flipping || takeoutLoading) &&
+                      styles.disabledButton,
+                  ]}
                   labelStyle={styles.takeoutLabel}>
-                  TAKEOUT
+                  {takeoutLoading ? 'CLAIMING...' : 'TAKEOUT'}
                 </Button>
               </View>
             </View>
@@ -606,11 +667,12 @@ export default function HomeScreen() {
               </LinearGradient>
             </MotiView>
           )}
-        </ImageBackground>
-      </KeyboardAvoidingView>
-
-      {showConfetti && <ConfettiCannon count={300} origin={{ x: screenWidth / 2, y: 0 }} fadeOut />}
-    </SafeAreaView>
+          {showConfetti && (
+            <ConfettiCannon count={300} origin={{ x: screenWidth / 2, y: 0 }} fadeOut />
+          )}
+        </SafeAreaView>
+      </ImageBackground>
+    </KeyboardAvoidingView>
   );
 }
 
