@@ -84,20 +84,17 @@ export default function VerificationCodeScreen() {
   };
 
   return (
-    <SafeAreaView
-      style={{ flex: 1, backgroundColor: colors.background }}
-      edges={['top', 'left', 'right']}>
-      {/* Top bar */}
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ImageBackground source={require('../assets/bg1.jpg')} style={{ flex: 1 }} resizeMode="cover">
-        <View style={styles.topBar}>
-          <TouchableOpacity onPress={() => navigation.goBack()}>
-            <Feather name="arrow-left" size={24} color="#fff" />
-          </TouchableOpacity>
-        </View>
+        <SafeAreaView style={{ flex: 1 }} edges={['top', 'left', 'right']}>
+          <View style={styles.topBar}>
+            <TouchableOpacity onPress={() => navigation.goBack()}>
+              <Feather name="arrow-left" size={24} color="#fff" />
+            </TouchableOpacity>
+          </View>
 
-        <KeyboardAvoidingView
-          style={{ flex: 1, padding: 24 }}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <MotiView
             from={{ opacity: 0, translateY: -20 }}
             animate={{ opacity: 1, translateY: 0 }}
@@ -152,7 +149,7 @@ export default function VerificationCodeScreen() {
             )}
           </View>
 
-          <GradientButton onPress={verify} loading={false}>
+          <GradientButton onPress={verify} loading={false} style={{ marginHorizontal: 24 }}>
             Verify
           </GradientButton>
 
@@ -162,9 +159,9 @@ export default function VerificationCodeScreen() {
             message={snackbar.message}
             onDismiss={() => setSnackbar((s) => ({ ...s, visible: false }))}
           />
-        </KeyboardAvoidingView>
+        </SafeAreaView>
       </ImageBackground>
-    </SafeAreaView>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -185,6 +182,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginBottom: 16,
+    marginHorizontal: 24,
   },
   otpInput: {
     width: 60,

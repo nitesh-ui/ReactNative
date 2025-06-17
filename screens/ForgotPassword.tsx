@@ -62,20 +62,17 @@ export default function ForgotPasswordScreen() {
   };
 
   return (
-    <SafeAreaView
-      style={{ flex: 1, backgroundColor: colors.background }}
-      edges={['top', 'left', 'right']}>
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ImageBackground source={require('../assets/bg1.jpg')} style={{ flex: 1 }} resizeMode="cover">
-        {/* Top bar with back button */}
-        <View style={styles.topBar}>
-          <TouchableOpacity onPress={() => navigation.goBack()}>
-            <Feather name="arrow-left" size={24} color="#fff" />
-          </TouchableOpacity>
-        </View>
-
-        <KeyboardAvoidingView
-          style={{ flex: 1 }}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <SafeAreaView style={{ flex: 1 }} edges={['top', 'left', 'right']}>
+          {/* Top bar with back button */}
+          <View style={styles.topBar}>
+            <TouchableOpacity onPress={() => navigation.navigate('Login')}>
+              <Feather name="arrow-left" size={24} color="#fff" />
+            </TouchableOpacity>
+          </View>
           <View style={styles.container}>
             <MotiView
               from={{ opacity: 0, translateY: -20 }}
@@ -105,9 +102,9 @@ export default function ForgotPasswordScreen() {
             message={snackbar.message}
             onDismiss={() => setSnackbar((s) => ({ ...s, visible: false }))}
           />
-        </KeyboardAvoidingView>
+        </SafeAreaView>
       </ImageBackground>
-    </SafeAreaView>
+    </KeyboardAvoidingView>
   );
 }
 

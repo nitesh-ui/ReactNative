@@ -152,16 +152,11 @@ export default function Register() {
   };
 
   return (
-    <SafeAreaView
-      style={{ flex: 1, backgroundColor: colors.background }}
-      edges={['top', 'left', 'right']}>
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ImageBackground
-          source={require('../assets/bg1.jpg')}
-          style={{ flex: 1 }}
-          resizeMode="cover">
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <ImageBackground source={require('../assets/bg1.jpg')} style={{ flex: 1 }} resizeMode="cover">
+        <SafeAreaView style={{ flex: 1 }} edges={['top', 'left', 'right']}>
           {/* Top Bar */}
           <View style={styles.topBar}>
             <TouchableOpacity onPress={() => navigation.goBack()}>
@@ -289,9 +284,9 @@ export default function Register() {
           />
 
           <CoinLoader visible={loading} />
-        </ImageBackground>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+        </SafeAreaView>
+      </ImageBackground>
+    </KeyboardAvoidingView>
   );
 }
 

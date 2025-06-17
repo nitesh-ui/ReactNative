@@ -75,22 +75,21 @@ export default function DepositScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <KeyboardAvoidingView
+      style={styles.flex}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ImageBackground
         source={require('../assets/bg1.jpg')}
         style={styles.background}
         resizeMode="cover">
-        {/* Header with Back + Dropdown */}
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.navigate('HomeScreen')}>
-            <MaterialIcons name="arrow-back" size={24} color="#fff" />
-          </TouchableOpacity>
-          <UserDropdown username={userId || 'USER'} />
-        </View>
-
-        <KeyboardAvoidingView
-          style={styles.flex}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <SafeAreaView style={styles.safeArea}>
+          {/* Header with Back + Dropdown */}
+          <View style={styles.header}>
+            <TouchableOpacity onPress={() => navigation.navigate('HomeScreen')}>
+              <MaterialIcons name="arrow-back" size={24} color="#fff" />
+            </TouchableOpacity>
+            <UserDropdown username={userId || 'USER'} />
+          </View>
           <ScrollView contentContainerStyle={styles.scroll}>
             {/* QR + UPI */}
             <View style={styles.qrBlock}>
@@ -125,21 +124,21 @@ export default function DepositScreen() {
               {loading ? 'Submitting…' : 'Submit Deposit'}
             </GradientButton>
           </ScrollView>
-        </KeyboardAvoidingView>
 
-        <Snackbar
-          visible={snackbar.visible}
-          onDismiss={() => setSnackbar((s) => ({ ...s, visible: false }))}
-          duration={3000}>
-          {snackbar.message}
-        </Snackbar>
+          <Snackbar
+            visible={snackbar.visible}
+            onDismiss={() => setSnackbar((s) => ({ ...s, visible: false }))}
+            duration={3000}>
+            {snackbar.message}
+          </Snackbar>
+        </SafeAreaView>
       </ImageBackground>
-    </SafeAreaView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#000' },
+  safeArea: { flex: 1 },
   background: { flex: 1 },
   flex: { flex: 1 },
   header: {

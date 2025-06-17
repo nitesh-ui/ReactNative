@@ -124,13 +124,11 @@ export default function WithdrawHistoryScreen() {
   };
 
   return (
-    <SafeAreaView
-      style={{ flex: 1, backgroundColor: colors.background }}
-      edges={['top', 'left', 'right']}>
-      <ImageBackground
-        source={require('../assets/bg1.jpg')}
-        style={styles.background}
-        resizeMode="cover">
+    <ImageBackground
+      source={require('../assets/bg1.jpg')}
+      style={styles.background}
+      resizeMode="cover">
+      <SafeAreaView style={{ flex: 1 }} edges={['top', 'left', 'right']}>
         {/* Top Bar */}
         <View style={styles.topBar}>
           <TouchableOpacity onPress={() => navigation.navigate('HomeScreen')}>
@@ -161,8 +159,8 @@ export default function WithdrawHistoryScreen() {
             />
           )}
         </View>
-      </ImageBackground>
-    </SafeAreaView>
+      </SafeAreaView>
+    </ImageBackground>
   );
 }
 

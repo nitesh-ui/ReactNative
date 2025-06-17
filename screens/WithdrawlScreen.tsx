@@ -150,21 +150,18 @@ export default function WithdrawalScreen() {
   };
 
   return (
-    <SafeAreaView
-      style={{ flex: 1, backgroundColor: colors.background }}
-      edges={['top', 'left', 'right']}>
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ImageBackground source={require('../assets/bg1.jpg')} style={{ flex: 1 }} resizeMode="cover">
-        {/* Top Bar */}
-        <View style={styles.topBar}>
-          <TouchableOpacity onPress={() => navigation.navigate('HomeScreen')}>
-            <Feather name="arrow-left" size={24} color="#fff" />
-          </TouchableOpacity>
-          <UserDropdown username={username ?? userId} />
-        </View>
-
-        <KeyboardAvoidingView
-          style={{ flex: 1 }}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <SafeAreaView style={{ flex: 1 }} edges={['top', 'left', 'right']}>
+          {/* Top Bar */}
+          <View style={styles.topBar}>
+            <TouchableOpacity onPress={() => navigation.navigate('HomeScreen')}>
+              <Feather name="arrow-left" size={24} color="#fff" />
+            </TouchableOpacity>
+            <UserDropdown username={username ?? userId} />
+          </View>
           <ScrollView contentContainerStyle={styles.scroll}>
             <MotiView
               from={{ opacity: 0, translateY: -20 }}
@@ -258,9 +255,9 @@ export default function WithdrawalScreen() {
           />
 
           <CoinLoader visible={loading} />
-        </KeyboardAvoidingView>
+        </SafeAreaView>
       </ImageBackground>
-    </SafeAreaView>
+    </KeyboardAvoidingView>
   );
 }
 

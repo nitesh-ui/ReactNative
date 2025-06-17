@@ -90,14 +90,17 @@ export default function HelpScreen() {
   }, [snackbar.visible]);
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <ImageBackground
-        source={require('../assets/bg1.jpg')}
-        style={styles.background}
-        resizeMode="cover">
+    // <KeyboardAvoidingView
+    //   style={{ flex: 1 }}
+    //   behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <ImageBackground
+      source={require('../assets/bg1.jpg')}
+      style={styles.background}
+      resizeMode="cover">
+      <SafeAreaView style={styles.safeArea}>
         {/* Header with Back + Dropdown */}
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()}>
+          <TouchableOpacity onPress={() => navigation.navigate('HomeScreen')}>
             <MaterialIcons name="arrow-back" size={24} color="#fff" />
           </TouchableOpacity>
           <UserDropdown />
@@ -156,15 +159,15 @@ export default function HelpScreen() {
           type={snackbar.type}
           onDismiss={() => setSnackbar((prev) => ({ ...prev, visible: false }))}
         />
-      </ImageBackground>
-    </SafeAreaView>
+      </SafeAreaView>
+    </ImageBackground>
+    // </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#000',
   },
   background: {
     flex: 1,
