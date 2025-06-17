@@ -20,7 +20,13 @@ export default function CoinLoader({ visible }: CoinLoaderProps) {
               rotate: ['360deg', '360deg', '360deg'],
               opacity: [0.6, 1, 0.6],
             }}
-            transition={{ loop: true, type: 'timing', duration: 1000 }}
+            transition={{
+              duration: 1000,
+              loop: true,
+              repeatReverse: false,
+              type: 'timing',
+              delay: 0,
+            }}
             style={styles.coinContainer}>
             <Image
               source={require('../assets/head.png')}
@@ -39,12 +45,13 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 0,
     left: 0,
-    width,
-    height,
+    right: 0,
+    bottom: 0,
     backgroundColor: 'rgba(0, 0, 0, 0.6)',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 20,
+    zIndex: 9999,
+    elevation: 9999,
   },
   coinContainer: {
     width: 100,
