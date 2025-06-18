@@ -1,5 +1,5 @@
 // screens/MyAccountScreen.tsx
-import React, { useContext } from 'react';
+import React, { useContext, useId } from 'react';
 import {
   View,
   StyleSheet,
@@ -60,15 +60,15 @@ export default function MyAccountScreen() {
             <View style={styles.profileRow}>
               <Image source={userInfo.avatar} style={styles.avatar} />
               <View style={styles.nameEmail}>
-                <Text style={styles.name}>{username ?? '-'}</Text>
+                <Text style={styles.name}>{userId ?? '-'}</Text>
                 <Text style={styles.email}>{email ?? '-'}</Text>
               </View>
             </View>
 
             {/* user information */}
             <View style={styles.field}>
-              <Text style={styles.fieldLabel}>Full Name</Text>
-              <Text style={styles.fieldValue}>{username ?? '-'}</Text>
+              <Text style={styles.fieldLabel}>Username</Text>
+              <Text style={styles.fieldValue}>{userId ?? '-'}</Text>
             </View>
 
             <View style={styles.field}>

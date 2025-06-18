@@ -130,7 +130,7 @@ export default function HomeScreen() {
   }, [flipping]);
 
   // Countdown (drives simulation)
-  const [countdown, setCountdown] = useState(15);
+  const [countdown, setCountdown] = useState(10);
 
   // Generate random ID for fake wins
   const genId = () =>
@@ -455,7 +455,7 @@ export default function HomeScreen() {
           }
         }
 
-        setCountdown(15); // Reset timer after execution
+        setCountdown(10); // Reset timer after execution
       };
 
       executeSimulation();
