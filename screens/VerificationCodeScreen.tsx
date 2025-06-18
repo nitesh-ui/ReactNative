@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { useTheme } from 'react-native-paper';
 import { AnimatePresence, MotiView } from 'moti';
-import { CommonActions, useNavigation } from '@react-navigation/native';
+import { CommonActions, useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/AppNavigator';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -22,15 +22,20 @@ import { Feather } from '@expo/vector-icons';
 import GradientButton from '../components/GradientButton';
 import AnimatedSnackbar from '../components/AnimatedSnackbar';
 
+type VerificationCodeRouteProp = RouteProp<RootStackParamList, 'VerificationCode'>;
+
 export default function VerificationCodeScreen() {
   const { colors } = useTheme();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const route = useRoute<VerificationCodeRouteProp>();
+  const { email } = route.params;
 
   const inputRefs = useRef<Array<TextInput | null>>([]);
-  const [code, setCode] = useState(['', '', '', '']);
+  const [code, setCode] = useState(['', '', '', '', '', '']);
   const [error, setError] = useState(false);
   const [shake, setShake] = useState(false);
   const [timer, setTimer] = useState(30);
+  const [loading, setLoading] = useState(false);
   const [snackbar, setSnackbar] = useState<{
     visible: boolean;
     message: string;
@@ -49,7 +54,7 @@ export default function VerificationCodeScreen() {
     const next = [...code];
     next[idx] = val;
     setCode(next);
-    if (idx < 3) inputRefs.current[idx + 1]?.focus();
+    if (idx < 5) inputRefs.current[idx + 1]?.focus();
   };
 
   const handleBack = (idx: number) => {
@@ -63,19 +68,18 @@ export default function VerificationCodeScreen() {
   };
 
   const verify = () => {
-    const entered = code.join('');
-    if (entered !== '1234') {
+    const otp = code.join('');
+    if (otp.length !== 6) {
       setError(true);
       setShake(true);
-      setSnackbar({ visible: true, message: 'Invalid code!', type: 'error' });
+      setSnackbar({ visible: true, message: 'Please enter complete OTP', type: 'error' });
       setTimeout(() => setShake(false), 500);
-    } else {
-      setError(false);
-      setSnackbar({ visible: true, message: 'Verified!', type: 'success' });
-      setTimeout(() => {
-        navigation.dispatch(CommonActions.reset({ index: 0, routes: [{ name: 'ResetPassword' }] }));
-      }, 800);
+      return;
     }
+
+    setError(false);
+    // Navigate to reset password with email and OTP
+    navigation.dispatch(CommonActions.navigate('ResetPassword', { email, otp }));
   };
 
   const resend = () => {
@@ -95,63 +99,73 @@ export default function VerificationCodeScreen() {
             </TouchableOpacity>
           </View>
 
-          <MotiView
-            from={{ opacity: 0, translateY: -20 }}
-            animate={{ opacity: 1, translateY: 0 }}
-            transition={{ duration: 500 }}>
-            <Text style={[styles.title, { color: colors.text }]}>🔒 Enter Verification Code</Text>
-          </MotiView>
+          <View style={styles.container}>
+            <MotiView
+              from={{ opacity: 0, translateY: -20 }}
+              animate={{ opacity: 1, translateY: 0 }}
+              transition={{ duration: 500 }}>
+              <Text style={[styles.title, { color: '#fff' }]}>🔒 Enter Verification Code</Text>
+              <Text style={styles.subtitle}>We've sent a verification code to your email</Text>
+            </MotiView>
 
-          <MotiView
-            from={{ translateX: 0 }}
-            animate={{ translateX: shake ? [-8, 8, -6, 6, -4, 4, 0] : 0 }}
-            transition={{ type: 'timing', duration: 100, repeat: shake ? 3 : 0 }}
-            style={styles.otpRow}>
-            {code.map((digit, idx) => (
-              <TextInput
-                key={idx}
-                ref={(ref) => (inputRefs.current[idx] = ref)}
-                style={[styles.otpInput, { borderColor: error ? colors.error : 'transparent' }]}
-                maxLength={1}
-                keyboardType="number-pad"
-                value={digit}
-                onChangeText={(val) => handleInput(val, idx)}
-                onKeyPress={({ nativeEvent }) => {
-                  if (nativeEvent.key === 'Backspace') handleBack(idx);
-                }}
-              />
-            ))}
-          </MotiView>
+            <MotiView
+              from={{ translateX: 0 }}
+              animate={{ translateX: shake ? [-8, 8, -6, 6, -4, 4, 0] : 0 }}
+              transition={{ duration: 100 }}
+              style={styles.otpRow}>
+              {code.map((digit, idx) => (
+                <View key={idx} style={styles.inputContainer}>
+                  <TextInput
+                    ref={(ref) => (inputRefs.current[idx] = ref)}
+                    style={[
+                      styles.otpInput,
+                      { borderColor: error ? colors.error : 'rgba(255,255,255,0.2)' },
+                      digit ? styles.otpInputFilled : null,
+                    ]}
+                    maxLength={1}
+                    keyboardType="number-pad"
+                    value={digit}
+                    onChangeText={(val) => handleInput(val, idx)}
+                    onKeyPress={({ nativeEvent }) => {
+                      if (nativeEvent.key === 'Backspace') handleBack(idx);
+                    }}
+                    textContentType="oneTimeCode"
+                    autoComplete="sms-otp"
+                    textAlign="center"
+                    allowFontScaling={false}
+                  />
+                </View>
+              ))}
+            </MotiView>
 
-          <AnimatePresence>
-            {error && (
-              <MotiView
-                from={{ opacity: 0, translateY: -10 }}
-                animate={{ opacity: 1, translateY: 0 }}
-                exit={{ opacity: 0 }}
-                style={{ marginBottom: 16 }}>
-                <Text style={[styles.errorText, { color: colors.error }]}>
-                  Invalid code. Please try again.
-                </Text>
-              </MotiView>
-            )}
-          </AnimatePresence>
+            <AnimatePresence>
+              {error && (
+                <MotiView
+                  from={{ opacity: 0, translateY: -10 }}
+                  animate={{ opacity: 1, translateY: 0 }}
+                  exit={{ opacity: 0 }}
+                  style={{ marginBottom: 16 }}>
+                  <Text style={[styles.errorText, { color: colors.error }]}>
+                    Please enter a valid 6-digit code.
+                  </Text>
+                </MotiView>
+              )}
+            </AnimatePresence>
 
-          <View style={styles.resendRow}>
-            {timer > 0 ? (
-              <Text style={{ color: colors.text }}>
-                Resend in 00:{String(timer).padStart(2, '0')}
-              </Text>
-            ) : (
-              <TouchableOpacity onPress={resend}>
-                <Text style={[styles.resendText, { color: colors.primary }]}>Resend Code</Text>
-              </TouchableOpacity>
-            )}
+            <View style={styles.resendRow}>
+              {timer > 0 ? (
+                <Text style={styles.timerText}>Resend in 00:{String(timer).padStart(2, '0')}</Text>
+              ) : (
+                <TouchableOpacity onPress={resend}>
+                  <Text style={[styles.resendText, { color: colors.primary }]}>Resend Code</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
+            <GradientButton onPress={verify} loading={loading} style={styles.verifyButton}>
+              Verify
+            </GradientButton>
           </View>
-
-          <GradientButton onPress={verify} loading={false} style={{ marginHorizontal: 24 }}>
-            Verify
-          </GradientButton>
 
           <AnimatedSnackbar
             visible={snackbar.visible}
@@ -172,26 +186,60 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 8,
   },
+  container: {
+    flex: 1,
+    paddingHorizontal: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   title: {
     fontSize: 24,
     fontWeight: '700',
     textAlign: 'center',
-    marginBottom: 24,
+    marginBottom: 8,
+  },
+  subtitle: {
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.7)',
+    textAlign: 'center',
+    marginBottom: 32,
   },
   otpRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-    marginHorizontal: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 24,
+    width: '100%',
+    paddingHorizontal: 16,
+    height: 60,
+  },
+  inputContainer: {
+    marginHorizontal: 4,
+    width: 50,
+    height: 50,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   otpInput: {
-    width: 60,
-    height: 60,
+    width: '100%',
+    height: '100%',
     borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.8)',
+    backgroundColor: 'rgba(255,255,255,0.1)',
     textAlign: 'center',
     fontSize: 24,
-    borderWidth: 2,
+    fontWeight: '600',
+    color: '#fff',
+    borderWidth: 1.5,
+    padding: 0,
+    margin: 0,
+    textAlignVertical: 'center',
+    includeFontPadding: false,
+    lineHeight: 50,
+    minHeight: 50,
+  },
+  otpInputFilled: {
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderColor: 'rgba(255,255,255,0.3)',
   },
   errorText: {
     textAlign: 'center',
@@ -200,9 +248,17 @@ const styles = StyleSheet.create({
   },
   resendRow: {
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 32,
+  },
+  timerText: {
+    color: '#fff',
+    fontSize: 14,
   },
   resendText: {
     fontWeight: '600',
+    fontSize: 14,
+  },
+  verifyButton: {
+    width: '100%',
   },
 });

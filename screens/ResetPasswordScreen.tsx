@@ -13,24 +13,30 @@ import {
 } from 'react-native';
 import { useTheme } from 'react-native-paper';
 import { MotiView, AnimatePresence } from 'moti';
-import { CommonActions, useNavigation } from '@react-navigation/native';
+import { CommonActions, useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/AppNavigator';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
+import apiClient from '../api/client';
 
 import FloatingInput from '../components/FloatingInput';
 import GradientButton from '../components/GradientButton';
 import AnimatedSnackbar from '../components/AnimatedSnackbar';
 
-export default function ResetPasswordScreen2() {
+type ResetPasswordRouteProp = RouteProp<RootStackParamList, 'ResetPassword'>;
+
+export default function ResetPasswordScreen() {
   const { colors } = useTheme();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const route = useRoute<ResetPasswordRouteProp>();
+  const { email, otp } = route.params;
 
   const [newPwd, setNewPwd] = useState('');
   const [confirmPwd, setConfirmPwd] = useState('');
   const [error, setError] = useState('');
   const [shake, setShake] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [snackbar, setSnackbar] = useState<{
     visible: boolean;
     message: string;
@@ -44,28 +50,65 @@ export default function ResetPasswordScreen2() {
     return () => clearTimeout(t);
   }, [snackbar.visible]);
 
-  const handleReset = () => {
-    if (newPwd.length < 6) {
-      setError('Password must be at least 6 characters.');
+  const validatePassword = (password: string) => {
+    if (password.length < 6) {
+      return 'Password must be at least 6 characters.';
+    }
+    // Add more password validations if needed
+    return '';
+  };
+
+  const handleReset = async () => {
+    // Reset states
+    setError('');
+    setShake(false);
+
+    // Validate password
+    const passwordError = validatePassword(newPwd);
+    if (passwordError) {
+      setError(passwordError);
       setShake(true);
       return;
     }
+
     if (newPwd !== confirmPwd) {
       setError('Passwords do not match.');
       setShake(true);
       return;
     }
-    setError('');
-    setSnackbar({ visible: true, message: 'Password reset successful!', type: 'success' });
 
-    setTimeout(() => {
-      navigation.dispatch(
-        CommonActions.reset({
-          index: 0,
-          routes: [{ name: 'Login' }],
-        })
-      );
-    }, 800);
+    setLoading(true);
+    try {
+      const response = await apiClient.post('/auth/verify-otp', {
+        email,
+        otp,
+        newPassword: newPwd,
+      });
+
+      setSnackbar({
+        visible: true,
+        message: 'Password reset successful! Please login with your new password.',
+        type: 'success',
+      });
+
+      // Navigate to login after success
+      setTimeout(() => {
+        navigation.dispatch(
+          CommonActions.reset({
+            index: 0,
+            routes: [{ name: 'Login' }],
+          })
+        );
+      }, 1500);
+    } catch (err: any) {
+      setSnackbar({
+        visible: true,
+        message: err?.response?.data?.message || 'Failed to reset password. Please try again.',
+        type: 'error',
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -85,7 +128,7 @@ export default function ResetPasswordScreen2() {
               animate={{ opacity: 1, translateY: 0 }}
               transition={{ duration: 500 }}
               style={{ marginBottom: 24, alignItems: 'center' }}>
-              <Text style={[styles.heading, { color: colors.text }]}>🔒 Reset Your Password</Text>
+              <Text style={[styles.heading, { color: '#fff' }]}>🔒 Reset Your Password</Text>
             </MotiView>
 
             <FloatingInput
@@ -119,12 +162,8 @@ export default function ResetPasswordScreen2() {
               ) : null}
             </AnimatePresence>
 
-            <GradientButton
-              onPress={() => {
-                setShake(false);
-                handleReset();
-              }}>
-              Submit
+            <GradientButton onPress={handleReset} loading={loading} disabled={loading}>
+              Reset Password
             </GradientButton>
           </ScrollView>
 

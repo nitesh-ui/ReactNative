@@ -19,8 +19,8 @@ export type RootStackParamList = {
   Login: undefined;
   Register: undefined;
   ForgotPassword: undefined;
-  VerificationCode: { input: string };
-  ResetPassword: undefined;
+  VerificationCode: { email: string };
+  ResetPassword: { email: string; otp: string };
   HomeScreen: undefined;
   DepositScreen: undefined;
   WithdrawlScreen: undefined;

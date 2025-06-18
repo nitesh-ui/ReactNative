@@ -16,6 +16,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/AppNavigator';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
+import apiClient from '../api/client';
 
 import FloatingInput from '../components/FloatingInput';
 import GradientButton from '../components/GradientButton';
@@ -26,7 +27,7 @@ export default function ForgotPasswordScreen() {
   const { colors } = useTheme();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
-  const [input, setInput] = useState('');
+  const [email, setEmail] = useState('');
   const [error, setError] = useState('');
   const [shake, setShake] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -44,21 +45,54 @@ export default function ForgotPasswordScreen() {
     }
   }, [snackbar.visible]);
 
-  const handleSendCode = () => {
-    if (!input.trim()) {
-      setError('Required');
+  const validateEmail = (email: string) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
+  const handleSendCode = async () => {
+    // Reset states
+    setError('');
+    setShake(false);
+
+    // Validate email
+    if (!email.trim()) {
+      setError('Email is required');
       setShake(true);
       setTimeout(() => setShake(false), 500);
       return;
     }
-    setError('');
+
+    if (!validateEmail(email.trim())) {
+      setError('Please enter a valid email address');
+      setShake(true);
+      setTimeout(() => setShake(false), 500);
+      return;
+    }
+
     setLoading(true);
-    // fake API
-    setTimeout(() => {
+    try {
+      const response = await apiClient.post('/auth/forgot-password', {
+        email: email.trim(),
+      });
+
+      setSnackbar({
+        visible: true,
+        message: 'OTP sent successfully! Please check your email.',
+        type: 'success',
+      });
+
+      // Navigate to verification screen with email
+      navigation.navigate('VerificationCode', { email: email.trim() });
+    } catch (err: any) {
+      setSnackbar({
+        visible: true,
+        message: err?.response?.data?.message || 'Failed to send OTP. Please try again.',
+        type: 'error',
+      });
+    } finally {
       setLoading(false);
-      setSnackbar({ visible: true, message: 'Code sent!', type: 'success' });
-      navigation.dispatch(CommonActions.navigate('VerificationCode', { input: input.trim() }));
-    }, 1200);
+    }
   };
 
   return (
@@ -78,17 +112,18 @@ export default function ForgotPasswordScreen() {
               from={{ opacity: 0, translateY: -20 }}
               animate={{ opacity: 1, translateY: 0 }}
               transition={{ duration: 600 }}>
-              <Text style={[styles.title, { color: colors.text }]}>🔑 Forgot Password?</Text>
+              <Text style={[styles.title, { color: '#fff' }]}>🔑 Forgot Password?</Text>
             </MotiView>
 
             <FloatingInput
-              label="Email or Phone"
-              iconName="user"
-              value={input}
-              onChangeText={setInput}
+              label="Email"
+              iconName="mail"
+              value={email}
+              onChangeText={setEmail}
               error={error}
               shake={shake}
-              keyboardType="default"
+              keyboardType="email-address"
+              autoCapitalize="none"
             />
 
             <GradientButton onPress={handleSendCode} loading={loading} disabled={loading}>
