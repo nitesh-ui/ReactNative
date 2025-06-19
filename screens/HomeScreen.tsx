@@ -143,6 +143,17 @@ export default function HomeScreen() {
     return Array.from({ length: count }, () => genId()).join(', ');
   };
 
+  // Show simulation winners sequentially
+  const showSimulationWinners = async (count: number) => {
+    setSimulating(true);
+    for (let i = 0; i < count; i++) {
+      showSnackbar(`${genId()} won!`, 'simulation');
+      await new Promise((r) => setTimeout(r, 600)); // Wait between each message
+    }
+    await new Promise((r) => setTimeout(r, 3000)); // Wait for last message
+    setSimulating(false);
+  };
+
   // Updated showSnackbar function to handle groups
   const showSnackbar = (message: string, group: MessageGroup = 'info') => {
     const newMessage: SnackbarMessage = {
@@ -363,8 +374,7 @@ export default function HomeScreen() {
 
           // Run fake wins simulation with single message
           setSimulating(true);
-          showSnackbar(`Recent Winners: ${genMultipleIds(5)}`, 'simulation');
-          await new Promise((r) => setTimeout(r, 3000));
+          await showSimulationWinners(5);
           setSimulating(false);
         } else {
           // Execute real bet
@@ -434,8 +444,7 @@ export default function HomeScreen() {
 
               // Run fake wins simulation after real bet with single message
               setSimulating(true);
-              showSnackbar(`Recent Winners: ${genMultipleIds(5)}`, 'simulation');
-              await new Promise((r) => setTimeout(r, 3000));
+              await showSimulationWinners(5);
               setSimulating(false);
             } catch (error) {
               // Ensure animation completes even on error
