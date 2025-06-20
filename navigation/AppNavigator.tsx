@@ -33,11 +33,12 @@ export type RootStackParamList = {
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
-interface Props {
-  initialRouteName?: keyof RootStackParamList;
-}
 
-export default function AppNavigator({ initialRouteName = 'Login' }: Props) {
+type Props = {
+  initialRouteName?: keyof RootStackParamList;
+};
+
+export default function AppNavigator({ initialRouteName = 'Landing' }: Props) {
   return (
     <Stack.Navigator
       initialRouteName={initialRouteName}

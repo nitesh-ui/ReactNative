@@ -36,21 +36,36 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
   const [firstLaunch, setFirstLaunch] = useState(true);
 
+  // Debug function to check AsyncStorage state
+  const logStorageState = async () => {
+    const keys = await AsyncStorage.getAllKeys();
+    const items = await AsyncStorage.multiGet(keys);
+    console.log('Current AsyncStorage state:', items);
+  };
+
   // on mount, load any saved auth state and check first launch
   useEffect(() => {
     (async () => {
       try {
+        await logStorageState();
+
         // Check if it's first launch
         const hasLaunched = await AsyncStorage.getItem('hasLaunched');
-        if (hasLaunched === null) {
+
+        // If never launched before, it's first launch
+        if (!hasLaunched) {
+          console.log('First launch detected');
           await AsyncStorage.setItem('hasLaunched', 'true');
           setFirstLaunch(true);
         } else {
+          console.log('Not first launch');
           setFirstLaunch(false);
         }
 
         // Try to restore auth state
         const token = await AsyncStorage.getItem('token');
+        console.log('Stored token:', token);
+
         if (token) {
           // Set the token in API client
           setAuthToken(token);
@@ -68,16 +83,48 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           if (name) setUsername(name);
           if (emailVal) setEmail(emailVal);
           if (phoneVal) setPhone(phoneVal);
+
+          console.log('Restored user data:', { id, name, emailVal, phoneVal });
         }
       } catch (e) {
         console.warn('Failed to load auth data', e);
+        // On error, clear all auth data to be safe
+        await clearAllData();
       } finally {
         setLoading(false);
       }
     })();
   }, []);
 
+  // Helper function to clear all data
+  const clearAllData = async () => {
+    console.log('Clearing all data...');
+
+    // Get all keys first
+    const keys = await AsyncStorage.getAllKeys();
+    console.log('Keys to clear:', keys);
+
+    // Clear AsyncStorage
+    await AsyncStorage.multiRemove(keys);
+
+    // Clear API client
+    setAuthToken('');
+
+    // Clear state
+    setUserToken(null);
+    setUserId(null);
+    setUsername(null);
+    setEmail(null);
+    setPhone(null);
+    setFirstLaunch(true);
+
+    // Verify storage is cleared
+    await logStorageState();
+  };
+
   const login = async (userEmail: string, password: string, remember: boolean) => {
+    console.log('Logging in with remember:', remember);
+
     const { token, userId, username, phone, email } = await apiLogin(userEmail, password);
 
     // Set auth state in memory
@@ -99,22 +146,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         ...(email ? [AsyncStorage.setItem('email', email)] : []),
         ...(phone ? [AsyncStorage.setItem('phone', phone)] : []),
       ]);
+      console.log('Auth state persisted');
+      await logStorageState();
     }
   };
 
   const logout = async () => {
-    // Clear all auth data from storage
-    await AsyncStorage.multiRemove(['token', 'userId', 'username', 'email', 'phone']);
-
-    // Clear auth header
-    setAuthToken('');
-
-    // Clear state
-    setUserToken(null);
-    setUserId(null);
-    setUsername(null);
-    setEmail(null);
-    setPhone(null);
+    console.log('Logging out...');
+    await clearAllData();
   };
 
   return (
