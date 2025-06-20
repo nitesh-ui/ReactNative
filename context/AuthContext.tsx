@@ -10,6 +10,7 @@ interface AuthContextData {
   email: string | null;
   phone: string | null;
   loading: boolean;
+  firstLaunch: boolean;
   login(userEmail: string, password: string, remember: boolean): Promise<void>;
   logout(): Promise<void>;
 }
@@ -21,6 +22,7 @@ export const AuthContext = createContext<AuthContextData>({
   email: null,
   phone: null,
   loading: true,
+  firstLaunch: true,
   login: async () => {},
   logout: async () => {},
 });
@@ -32,24 +34,41 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [email, setEmail] = useState<string | null>(null);
   const [phone, setPhone] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [firstLaunch, setFirstLaunch] = useState(true);
 
-  // on mount, load any saved auth state
+  // on mount, load any saved auth state and check first launch
   useEffect(() => {
     (async () => {
       try {
+        // Check if it's first launch
+        const hasLaunched = await AsyncStorage.getItem('hasLaunched');
+        if (hasLaunched === null) {
+          await AsyncStorage.setItem('hasLaunched', 'true');
+          setFirstLaunch(true);
+        } else {
+          setFirstLaunch(false);
+        }
+
+        // Try to restore auth state
         const token = await AsyncStorage.getItem('token');
-        const id = await AsyncStorage.getItem('userId');
-        const name = await AsyncStorage.getItem('username');
-        const email = await AsyncStorage.getItem('email');
-        const phone = await AsyncStorage.getItem('phone');
         if (token) {
+          // Set the token in API client
           setAuthToken(token);
           setUserToken(token);
+
+          // Restore other user data
+          const [id, name, emailVal, phoneVal] = await Promise.all([
+            AsyncStorage.getItem('userId'),
+            AsyncStorage.getItem('username'),
+            AsyncStorage.getItem('email'),
+            AsyncStorage.getItem('phone'),
+          ]);
+
+          if (id) setUserId(id);
+          if (name) setUsername(name);
+          if (emailVal) setEmail(emailVal);
+          if (phoneVal) setPhone(phoneVal);
         }
-        if (id) setUserId(id);
-        if (name) setUsername(name);
-        if (email) setEmail(email);
-        if (phone) setPhone(phone);
       } catch (e) {
         console.warn('Failed to load auth data', e);
       } finally {
@@ -58,29 +77,39 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     })();
   }, []);
 
-  // call this from your LoginScreen
   const login = async (userEmail: string, password: string, remember: boolean) => {
     const { token, userId, username, phone, email } = await apiLogin(userEmail, password);
-    console.log('login', { userId, username, phone, email });
 
+    // Set auth state in memory
     setUserToken(token);
     setUserId(userId);
     if (username) setUsername(username);
     if (email) setEmail(email);
     if (phone) setPhone(phone);
+
+    // Set token in API client
+    setAuthToken(token);
+
     if (remember) {
-      // persist only if “remember me” checked
-      await AsyncStorage.setItem('token', token);
-      await AsyncStorage.setItem('userId', userId);
-      if (username) await AsyncStorage.setItem('username', username);
-      if (email) await AsyncStorage.setItem('email', email);
-      if (phone) await AsyncStorage.setItem('phone', phone);
+      // Persist auth state only if "remember me" is checked
+      await Promise.all([
+        AsyncStorage.setItem('token', token),
+        AsyncStorage.setItem('userId', userId),
+        ...(username ? [AsyncStorage.setItem('username', username)] : []),
+        ...(email ? [AsyncStorage.setItem('email', email)] : []),
+        ...(phone ? [AsyncStorage.setItem('phone', phone)] : []),
+      ]);
     }
   };
 
   const logout = async () => {
-    await AsyncStorage.multiRemove(['token', 'userId', 'username']);
-    apiClient.defaults.headers.common.Authorization = '';
+    // Clear all auth data from storage
+    await AsyncStorage.multiRemove(['token', 'userId', 'username', 'email', 'phone']);
+
+    // Clear auth header
+    setAuthToken('');
+
+    // Clear state
     setUserToken(null);
     setUserId(null);
     setUsername(null);
@@ -90,7 +119,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   return (
     <AuthContext.Provider
-      value={{ userToken, userId, username, email, phone, loading, login, logout }}>
+      value={{ userToken, userId, username, email, phone, loading, firstLaunch, login, logout }}>
       {children}
     </AuthContext.Provider>
   );

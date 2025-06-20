@@ -1,43 +1,19 @@
 // navigation/RootNavigator.tsx
-import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, View } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import React, { useContext } from 'react';
 import AppNavigator from './AppNavigator';
 import LandingScreen from 'screens/LandinScreen';
+import { AuthContext } from '../context/AuthContext';
+import LoadingScreen from '../components/LoadingScreen';
 
 export default function RootNavigator() {
-  const [loading, setLoading] = useState(true);
-  const [firstLaunch, setFirstLaunch] = useState<boolean | null>(null);
-
-  useEffect(() => {
-    const checkFirstLaunch = async () => {
-      try {
-        const hasLaunched = await AsyncStorage.getItem('hasLaunched');
-        if (hasLaunched === null) {
-          await AsyncStorage.setItem('hasLaunched', 'true');
-          setFirstLaunch(true);
-        } else {
-          setFirstLaunch(false);
-        }
-      } catch (err) {
-        console.error('Error checking app launch status:', err);
-        setFirstLaunch(false);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    checkFirstLaunch();
-  }, []);
+  const { loading, userToken, firstLaunch } = useContext(AuthContext);
 
   if (loading) {
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size="large" />
-      </View>
-    );
+    return <LoadingScreen />;
   }
 
-  // return <AppNavigator initialRouteName={firstLaunch ? 'Landing' : 'Login'} />;
-  return <AppNavigator initialRouteName="Landing" />;
+  // If user is authenticated, go to HomeScreen, otherwise show Landing or Login
+  return (
+    <AppNavigator initialRouteName={userToken ? 'HomeScreen' : firstLaunch ? 'Landing' : 'Login'} />
+  );
 }

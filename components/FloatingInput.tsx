@@ -1,119 +1,135 @@
 // components/FloatingInput.tsx
 import React, { useState } from 'react';
-import { View, TextInput, StyleSheet, TextInputProps, TouchableOpacity, Text } from 'react-native';
-import { MotiView } from 'moti';
+import { View, TextInput, Text, StyleSheet } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import { MotiView } from 'moti';
+import type { ViewStyle } from 'react-native';
 
-interface FloatingInputProps extends TextInputProps {
+interface Props {
   label: string;
-  iconName: React.ComponentProps<typeof Feather>['name'];
   value: string;
-  onChangeText(text: string): void;
+  onChangeText: (text: string) => void;
+  iconName?: keyof typeof Feather.glyphMap;
   secure?: boolean;
-  error?: string;
+  keyboardType?: 'default' | 'email-address' | 'numeric' | 'phone-pad';
+  autoCapitalize?: 'none' | 'sentences' | 'words' | 'characters';
+  hasError?: boolean;
   shake?: boolean;
 }
 
 export default function FloatingInput({
   label,
-  iconName,
   value,
   onChangeText,
+  iconName,
   secure = false,
-  error,
-  shake,
-  ...props
-}: FloatingInputProps) {
-  const [focused, setFocused] = useState(false);
-  // local toggle for secure entry
-  const [hidden, setHidden] = useState(secure);
+  keyboardType = 'default',
+  autoCapitalize = 'none',
+  hasError = false,
+  shake = false,
+}: Props) {
+  const [isFocused, setIsFocused] = useState(false);
+  const [showPassword, setShowPassword] = useState(!secure);
 
   return (
-    <View style={{ marginBottom: shake ? 20 : 12 }}>
-      <MotiView
-        from={{ translateX: 0 }}
-        animate={{ translateX: shake ? -8 : 0 }}
-        transition={{
-          type: 'timing',
-          duration: 100,
-          repeat: shake ? 3 : 0,
-          repeatReverse: true,
-        }}>
-        <View
-          style={[
-            styles.container,
-            {
-              borderColor: error
-                ? 'rgba(255,80,80,0.9)'
-                : focused
-                  ? 'rgba(255,255,255,0.8)'
-                  : 'rgba(255,255,255,0.4)',
-            },
-          ]}>
+    <MotiView
+      style={styles.container}
+      animate={{
+        translateX: shake ? [-8, 8, -8, 8, -8, 0] : 0,
+      }}
+      transition={{
+        duration: 400,
+      }}>
+      <View
+        style={[
+          styles.inputContainer,
+          {
+            borderColor: hasError ? '#F44336' : isFocused ? '#BB86FC' : 'rgba(255,255,255,0.4)',
+          },
+        ]}>
+        {iconName && (
           <Feather
             name={iconName}
             size={20}
-            color={focused ? '#fff' : 'rgba(255,255,255,0.7)'}
+            color={hasError ? '#F44336' : isFocused ? '#BB86FC' : '#fff'}
             style={styles.icon}
           />
-
+        )}
+        <View style={styles.inputWrapper}>
+          <Text
+            style={[
+              styles.label,
+              {
+                transform: [
+                  {
+                    translateY: isFocused || value ? -20 : 0,
+                  },
+                  {
+                    scale: isFocused || value ? 0.8 : 1,
+                  },
+                ],
+                color: hasError ? '#F44336' : isFocused ? '#BB86FC' : 'rgba(255,255,255,0.7)',
+              },
+            ]}>
+            {label}
+          </Text>
           <TextInput
             value={value}
             onChangeText={onChangeText}
-            secureTextEntry={secure && hidden}
-            placeholder={label}
-            placeholderTextColor="rgba(255,255,255,0.7)"
-            onFocus={() => setFocused(true)}
-            onBlur={() => setFocused(false)}
             style={styles.input}
-            {...props}
+            onFocus={() => setIsFocused(true)}
+            onBlur={() => setIsFocused(false)}
+            secureTextEntry={!showPassword}
+            keyboardType={keyboardType}
+            autoCapitalize={autoCapitalize}
+            placeholderTextColor="rgba(255,255,255,0.5)"
           />
-
-          {secure && (
-            <TouchableOpacity onPress={() => setHidden((h) => !h)} style={styles.eyeButton}>
-              <Feather
-                name={hidden ? 'eye' : 'eye-off'}
-                size={20}
-                color={focused ? '#fff' : 'rgba(255,255,255,0.7)'}
-              />
-            </TouchableOpacity>
-          )}
         </View>
-      </MotiView>
-
-      {!!error && <Text style={styles.errorText}>{error}</Text>}
-    </View>
+        {secure && (
+          <Feather
+            name={showPassword ? 'eye-off' : 'eye'}
+            size={20}
+            color="#fff"
+            style={styles.icon}
+            onPress={() => setShowPassword(!showPassword)}
+          />
+        )}
+      </View>
+    </MotiView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    position: 'relative',
+    marginBottom: 16,
+  },
+  inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.3)',
-    borderRadius: 12,
     borderWidth: 1,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
+    borderRadius: 12,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    overflow: 'hidden',
   },
-  icon: {
-    marginRight: 12,
+  inputWrapper: {
+    flex: 1,
+    paddingVertical: 8,
+    position: 'relative',
+  },
+  label: {
+    position: 'absolute',
+    left: 0,
+    top: 20,
+    fontSize: 16,
+    paddingHorizontal: 4,
   },
   input: {
-    flex: 1,
     color: '#fff',
     fontSize: 16,
-    padding: 0,
+    paddingVertical: 8,
+    paddingTop: 16,
   },
-  eyeButton: {
-    marginLeft: 12,
-  },
-  errorText: {
-    marginTop: 6,
-    marginLeft: 16,
-    color: '#FF5050',
-    fontSize: 13,
-    fontWeight: '600',
+  icon: {
+    paddingHorizontal: 12,
   },
 });

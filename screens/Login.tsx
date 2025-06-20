@@ -15,11 +15,20 @@ import { CommonActions, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/AppNavigator';
 import { AuthContext } from '../context/AuthContext';
-import AnimatedSnackbar from '../components/AnimatedSnackbar';
 import CoinLoader from '../components/CoinLoader';
+import { LinearGradient } from 'expo-linear-gradient';
 
 import FloatingInput from '../components/FloatingInput';
 import GradientButton from '../components/GradientButton';
+
+// Define message types
+type MessageGroup = 'success' | 'error';
+interface SnackbarMessage {
+  id: string;
+  message: string;
+  group: MessageGroup;
+  timestamp: number;
+}
 
 export default function Login() {
   const { colors } = useTheme();
@@ -30,55 +39,97 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [errors, setErrors] = useState({ email: '', password: '' });
+  const [hasError, setHasError] = useState({ email: false, password: false });
   const [shakeEmail, setShakeEmail] = useState(false);
   const [shakePassword, setShakePassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const [snackbarVisible, setSnackbarVisible] = useState(false);
-  const [snackbarMsg, setSnackbarMsg] = useState('');
-  const [snackbarType, setSnackbarType] = useState<'success' | 'error'>('success');
+  const [snackbarMessages, setSnackbarMessages] = useState<SnackbarMessage[]>([]);
 
-  useEffect(() => {
-    if (snackbarVisible) {
-      const t = setTimeout(() => setSnackbarVisible(false), 3000);
-      return () => clearTimeout(t);
+  // Generate random ID for messages
+  const genId = () =>
+    Array.from({ length: 6 })
+      .map(() => 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'.charAt(Math.random() * 36))
+      .join('');
+
+  // Helper to get group color
+  const getGroupColor = (group: MessageGroup): [string, string] => {
+    switch (group) {
+      case 'success':
+        return ['#4CAF50', '#81C784']; // Green for success
+      case 'error':
+        return ['#F44336', '#E57373']; // Red for errors
+      default:
+        return ['#FF6F91', '#FF9671'];
     }
-  }, [snackbarVisible]);
+  };
+
+  const showMessage = (message: string, group: MessageGroup = 'success') => {
+    const newMessage: SnackbarMessage = {
+      id: genId(),
+      message,
+      group,
+      timestamp: Date.now(),
+    };
+
+    setSnackbarMessages((prev) => [...prev, newMessage]);
+
+    // Remove message after timeout
+    setTimeout(() => {
+      setSnackbarMessages((prev) => prev.filter((msg) => msg.id !== newMessage.id));
+    }, 3000);
+  };
 
   const validateAndSubmit = async () => {
-    const newErrors = { email: '', password: '' };
-    let valid = true;
+    const newHasError = { email: false, password: false };
+    let hasErrors = false;
+
+    // Validate email
     if (!email.trim()) {
-      newErrors.email = 'Email is required';
+      newHasError.email = true;
       setShakeEmail(true);
-      valid = false;
+      showMessage('Email is required', 'error');
+      hasErrors = true;
+    } else if (!/\S+@\S+\.\S+/.test(email.trim())) {
+      newHasError.email = true;
+      setShakeEmail(true);
+      showMessage('Please enter a valid email', 'error');
+      hasErrors = true;
     }
+
+    // Validate password
     if (!password) {
-      newErrors.password = 'Password is required';
+      newHasError.password = true;
       setShakePassword(true);
-      valid = false;
+      showMessage('Password is required', 'error');
+      hasErrors = true;
     }
-    setErrors(newErrors);
+
+    setHasError(newHasError);
     setTimeout(() => {
       setShakeEmail(false);
       setShakePassword(false);
     }, 500);
-    if (!valid) return;
+
+    if (hasErrors) {
+      return;
+    }
 
     try {
       setLoading(true);
       await login(email.trim(), password, rememberMe);
-      setSnackbarMsg('Logged in successfully!');
-      setSnackbarType('success');
-      setSnackbarVisible(true);
+      showMessage('Logged in successfully!', 'success');
       setTimeout(() => {
         navigation.dispatch(CommonActions.reset({ index: 0, routes: [{ name: 'HomeScreen' }] }));
       }, 800);
     } catch (err: any) {
-      setSnackbarMsg(err?.response?.data?.message || 'Login failed');
-      setSnackbarType('error');
-      setSnackbarVisible(true);
+      // Extract error message from API response
+      const errorMessage =
+        err?.response?.data?.message ||
+        err?.response?.data?.error ||
+        err?.message ||
+        'Login failed. Please try again.';
+      showMessage(errorMessage, 'error');
     } finally {
       setLoading(false);
     }
@@ -102,7 +153,7 @@ export default function Login() {
                 transition={{ duration: 600 }}
                 style={{ alignItems: 'center', marginBottom: 32 }}>
                 <Text style={{ fontSize: 28, fontWeight: 'bold', color: '#fff' }}>
-                🪙 Welcome to Flip
+                  🪙 Welcome to Flip
                 </Text>
               </MotiView>
 
@@ -112,7 +163,7 @@ export default function Login() {
                 value={email}
                 onChangeText={setEmail}
                 keyboardType="email-address"
-                error={errors.email}
+                hasError={hasError.email}
                 shake={shakeEmail}
               />
               <FloatingInput
@@ -120,7 +171,7 @@ export default function Login() {
                 iconName="lock"
                 value={password}
                 onChangeText={setPassword}
-                error={errors.password}
+                hasError={hasError.password}
                 secure
                 shake={shakePassword}
               />
@@ -150,7 +201,7 @@ export default function Login() {
               </GradientButton>
 
               <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: 16 }}>
-                <Text style={{ color: '#fff' }}>Don’t have an account? </Text>
+                <Text style={{ color: '#fff' }}>Don't have an account? </Text>
                 <TouchableOpacity onPress={() => navigation.navigate('Register')}>
                   <Text style={{ color: colors.primary, fontWeight: '600' }}>Sign Up</Text>
                 </TouchableOpacity>
@@ -159,12 +210,57 @@ export default function Login() {
           </ScrollView>
         </MotiView>
 
-        <AnimatedSnackbar
-          visible={snackbarVisible}
-          type={snackbarType}
-          message={snackbarMsg}
-          onDismiss={() => setSnackbarVisible(false)}
-        />
+        {/* Stacked Snackbars */}
+        <View
+          style={{
+            position: 'absolute',
+            top: 32,
+            left: 0,
+            right: 0,
+            alignItems: 'center',
+            zIndex: 10,
+            gap: 8,
+          }}>
+          {snackbarMessages.map((msg) => (
+            <MotiView
+              key={msg.id}
+              from={{ scale: 0.8, opacity: 0, translateY: -20 }}
+              animate={{ scale: 1, opacity: 1, translateY: 0 }}
+              exit={{ scale: 0.8, opacity: 0, translateY: -20 }}
+              transition={{
+                duration: 400,
+              }}
+              style={{
+                width: '90%',
+                maxWidth: 400,
+              }}>
+              <LinearGradient
+                colors={getGroupColor(msg.group)}
+                start={[0, 0]}
+                end={[1, 1]}
+                style={{
+                  paddingHorizontal: 24,
+                  paddingVertical: 12,
+                  borderRadius: 24,
+                  shadowColor: '#000',
+                  shadowOpacity: 0.2,
+                  shadowOffset: { width: 0, height: 4 },
+                  shadowRadius: 6,
+                }}>
+                <Text
+                  style={{
+                    color: '#000',
+                    fontWeight: '700',
+                    fontSize: 16,
+                    textAlign: 'center',
+                  }}>
+                  {msg.message}
+                </Text>
+              </LinearGradient>
+            </MotiView>
+          ))}
+        </View>
+
         <CoinLoader visible={loading} />
       </ImageBackground>
     </KeyboardAvoidingView>

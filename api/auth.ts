@@ -13,20 +13,10 @@ export async function login(userEmail: string, password: string) {
     throw new Error('Login failed: no token received');
   }
 
-  // persist for future sessions
-  await AsyncStorage.setItem('token', token);
-  await AsyncStorage.setItem('userId', userId);
-  if (username) {
-    await AsyncStorage.setItem('username', username);
-  }
-  if (phone) {
-    await AsyncStorage.setItem('phone', phone);
-  }
-  if (email) {
-    await AsyncStorage.setItem('email', email);
-  }
-
+  // Set the token in API client
   setAuthToken(token);
+
+  // Return the data for AuthContext to handle persistence
   return { token, userId, username, phone, email };
 }
 

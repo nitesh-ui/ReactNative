@@ -172,10 +172,16 @@ export default function HomeScreen() {
   };
 
   // Helper to get group color
-  const getGroupColor = (group: MessageGroup): [string, string] => {
+  const getGroupColor = (group: MessageGroup, message?: string): [string, string] => {
     switch (group) {
       case 'bet_result':
-        return ['#4CAF50', '#81C784']; // Green for user's bet results
+        // Check if message indicates a win or loss
+        if (message?.toLowerCase().includes('won')) {
+          return ['#4CAF50', '#81C784']; // Green for wins
+        } else if (message?.toLowerCase().includes('lost')) {
+          return ['#F44336', '#E57373']; // Red for losses
+        }
+        return ['#FFC107', '#FFD54F']; // Yellow for queued bets
       case 'simulation':
         return ['#2196F3', '#64B5F6']; // Blue for simulation results
       case 'takeout':
@@ -657,7 +663,8 @@ export default function HomeScreen() {
                     style={[
                       styles.flipBtn,
                       { backgroundColor: colors.primary },
-                      (flipping || simulating || queuedBet !== null) && styles.disabledButton,
+                      (flipping || simulating || queuedBet !== null || takeoutLoading) &&
+                        styles.disabledButton,
                     ]}
                     labelStyle={{ color: '#000', fontWeight: 'bold', fontSize: 18 }}>
                     BET
@@ -671,7 +678,11 @@ export default function HomeScreen() {
                   loading={takeoutLoading}
                   style={[
                     styles.takeoutBtn,
-                    (currentBalance === 0 || simulating || flipping || takeoutLoading) &&
+                    (currentBalance === 0 ||
+                      simulating ||
+                      flipping ||
+                      takeoutLoading ||
+                      queuedBet !== null) &&
                       styles.disabledButton,
                   ]}
                   labelStyle={styles.takeoutLabel}>
@@ -692,7 +703,7 @@ export default function HomeScreen() {
                 transition={{ type: 'spring', damping: 10 }}
                 style={styles.toastContainer}>
                 <LinearGradient
-                  colors={getGroupColor(msg.group)}
+                  colors={getGroupColor(msg.group, msg.message)}
                   start={[0, 0]}
                   end={[1, 1]}
                   style={styles.toastGradient}>

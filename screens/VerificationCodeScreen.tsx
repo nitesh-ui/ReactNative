@@ -12,17 +12,26 @@ import {
   ImageBackground,
 } from 'react-native';
 import { useTheme } from 'react-native-paper';
-import { AnimatePresence, MotiView } from 'moti';
+import { MotiView } from 'moti';
 import { CommonActions, useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/AppNavigator';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 
 import GradientButton from '../components/GradientButton';
-import AnimatedSnackbar from '../components/AnimatedSnackbar';
 
 type VerificationCodeRouteProp = RouteProp<RootStackParamList, 'VerificationCode'>;
+
+// Define message types
+type MessageGroup = 'success' | 'error';
+interface SnackbarMessage {
+  id: string;
+  message: string;
+  group: MessageGroup;
+  timestamp: number;
+}
 
 export default function VerificationCodeScreen() {
   const { colors } = useTheme();
@@ -36,11 +45,41 @@ export default function VerificationCodeScreen() {
   const [shake, setShake] = useState(false);
   const [timer, setTimer] = useState(30);
   const [loading, setLoading] = useState(false);
-  const [snackbar, setSnackbar] = useState<{
-    visible: boolean;
-    message: string;
-    type: 'success' | 'error';
-  }>({ visible: false, message: '', type: 'error' });
+  const [snackbarMessages, setSnackbarMessages] = useState<SnackbarMessage[]>([]);
+
+  // Generate random ID for messages
+  const genId = () =>
+    Array.from({ length: 6 })
+      .map(() => 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'.charAt(Math.random() * 36))
+      .join('');
+
+  // Helper to get group color
+  const getGroupColor = (group: MessageGroup): [string, string] => {
+    switch (group) {
+      case 'success':
+        return ['#4CAF50', '#81C784']; // Green for success
+      case 'error':
+        return ['#F44336', '#E57373']; // Red for errors
+      default:
+        return ['#FF6F91', '#FF9671'];
+    }
+  };
+
+  const showMessage = (message: string, group: MessageGroup = 'success') => {
+    const newMessage: SnackbarMessage = {
+      id: genId(),
+      message,
+      group,
+      timestamp: Date.now(),
+    };
+
+    setSnackbarMessages((prev) => [...prev, newMessage]);
+
+    // Remove message after timeout
+    setTimeout(() => {
+      setSnackbarMessages((prev) => prev.filter((msg) => msg.id !== newMessage.id));
+    }, 3000);
+  };
 
   // countdown
   useEffect(() => {
@@ -54,6 +93,7 @@ export default function VerificationCodeScreen() {
     const next = [...code];
     next[idx] = val;
     setCode(next);
+    setError(false); // Clear error when user types
     if (idx < 5) inputRefs.current[idx + 1]?.focus();
   };
 
@@ -72,7 +112,7 @@ export default function VerificationCodeScreen() {
     if (otp.length !== 6) {
       setError(true);
       setShake(true);
-      setSnackbar({ visible: true, message: 'Please enter complete OTP', type: 'error' });
+      showMessage('Please enter a valid 6-digit code', 'error');
       setTimeout(() => setShake(false), 500);
       return;
     }
@@ -84,7 +124,7 @@ export default function VerificationCodeScreen() {
 
   const resend = () => {
     setTimer(30);
-    setSnackbar({ visible: true, message: 'Code resent!', type: 'success' });
+    showMessage('Code resent!', 'success');
   };
 
   return (
@@ -109,9 +149,12 @@ export default function VerificationCodeScreen() {
             </MotiView>
 
             <MotiView
-              from={{ translateX: 0 }}
-              animate={{ translateX: shake ? [-8, 8, -6, 6, -4, 4, 0] : 0 }}
-              transition={{ duration: 100 }}
+              animate={{
+                translateX: shake ? [-8, 8, -8, 8, -8, 0] : 0,
+              }}
+              transition={{
+                duration: 400,
+              }}
               style={styles.otpRow}>
               {code.map((digit, idx) => (
                 <View key={idx} style={styles.inputContainer}>
@@ -119,7 +162,7 @@ export default function VerificationCodeScreen() {
                     ref={(ref) => (inputRefs.current[idx] = ref)}
                     style={[
                       styles.otpInput,
-                      { borderColor: error ? colors.error : 'rgba(255,255,255,0.2)' },
+                      { borderColor: error ? '#F44336' : 'rgba(255,255,255,0.2)' },
                       digit ? styles.otpInputFilled : null,
                     ]}
                     maxLength={1}
@@ -138,20 +181,6 @@ export default function VerificationCodeScreen() {
               ))}
             </MotiView>
 
-            <AnimatePresence>
-              {error && (
-                <MotiView
-                  from={{ opacity: 0, translateY: -10 }}
-                  animate={{ opacity: 1, translateY: 0 }}
-                  exit={{ opacity: 0 }}
-                  style={{ marginBottom: 16 }}>
-                  <Text style={[styles.errorText, { color: colors.error }]}>
-                    Please enter a valid 6-digit code.
-                  </Text>
-                </MotiView>
-              )}
-            </AnimatePresence>
-
             <View style={styles.resendRow}>
               {timer > 0 ? (
                 <Text style={styles.timerText}>Resend in 00:{String(timer).padStart(2, '0')}</Text>
@@ -167,12 +196,56 @@ export default function VerificationCodeScreen() {
             </GradientButton>
           </View>
 
-          <AnimatedSnackbar
-            visible={snackbar.visible}
-            type={snackbar.type}
-            message={snackbar.message}
-            onDismiss={() => setSnackbar((s) => ({ ...s, visible: false }))}
-          />
+          {/* Stacked Snackbars */}
+          <View
+            style={{
+              position: 'absolute',
+              top: 32,
+              left: 0,
+              right: 0,
+              alignItems: 'center',
+              zIndex: 10,
+              gap: 8,
+            }}>
+            {snackbarMessages.map((msg) => (
+              <MotiView
+                key={msg.id}
+                from={{ scale: 0.8, opacity: 0, translateY: -20 }}
+                animate={{ scale: 1, opacity: 1, translateY: 0 }}
+                exit={{ scale: 0.8, opacity: 0, translateY: -20 }}
+                transition={{
+                  duration: 400,
+                }}
+                style={{
+                  width: '90%',
+                  maxWidth: 400,
+                }}>
+                <LinearGradient
+                  colors={getGroupColor(msg.group)}
+                  start={[0, 0]}
+                  end={[1, 1]}
+                  style={{
+                    paddingHorizontal: 24,
+                    paddingVertical: 12,
+                    borderRadius: 24,
+                    shadowColor: '#000',
+                    shadowOpacity: 0.2,
+                    shadowOffset: { width: 0, height: 4 },
+                    shadowRadius: 6,
+                  }}>
+                  <Text
+                    style={{
+                      color: '#000',
+                      fontWeight: '700',
+                      fontSize: 16,
+                      textAlign: 'center',
+                    }}>
+                    {msg.message}
+                  </Text>
+                </LinearGradient>
+              </MotiView>
+            ))}
+          </View>
         </SafeAreaView>
       </ImageBackground>
     </KeyboardAvoidingView>
@@ -240,11 +313,6 @@ const styles = StyleSheet.create({
   otpInputFilled: {
     backgroundColor: 'rgba(255,255,255,0.2)',
     borderColor: 'rgba(255,255,255,0.3)',
-  },
-  errorText: {
-    textAlign: 'center',
-    fontSize: 14,
-    fontWeight: '600',
   },
   resendRow: {
     alignItems: 'center',

@@ -1,5 +1,6 @@
 import 'react-native-reanimated';
 import React from 'react';
+import { StatusBar } from 'react-native';
 import { PaperProvider } from 'react-native-paper';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AppTheme } from './theme';
@@ -14,21 +15,24 @@ import { CurrencyProvider } from './context/CurrencyContext';
 
 export default function App() {
   return (
-    <SafeAreaProvider>
-      <AuthProvider>
-        <BalanceProvider>
-          <CurrencyProvider>
-            <PaperProvider theme={AppTheme}>
-              <SoundProvider>
-                <NavigationContainer>
-                  {/* <AppNavigator /> */}
-                  <RootNavigator />
-                </NavigationContainer>
-              </SoundProvider>
-            </PaperProvider>
-          </CurrencyProvider>
-        </BalanceProvider>
-      </AuthProvider>
-    </SafeAreaProvider>
+    <>
+      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+      <SafeAreaProvider>
+        <AuthProvider>
+          <BalanceProvider>
+            <CurrencyProvider>
+              <PaperProvider theme={AppTheme}>
+                <SoundProvider>
+                  <NavigationContainer>
+                    {/* <AppNavigator /> */}
+                    <RootNavigator />
+                  </NavigationContainer>
+                </SoundProvider>
+              </PaperProvider>
+            </CurrencyProvider>
+          </BalanceProvider>
+        </AuthProvider>
+      </SafeAreaProvider>
+    </>
   );
 }
