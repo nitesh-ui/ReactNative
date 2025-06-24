@@ -184,7 +184,8 @@ export default function Register() {
         800
       );
     } catch (err: any) {
-      showMessage(err?.response?.data?.message || 'Signup failed', 'error');
+      // showMessage(err?.response?.data?.message || 'Signup failed', 'error');
+      showMessage('Signup failed', 'error');
     } finally {
       setLoading(false);
     }

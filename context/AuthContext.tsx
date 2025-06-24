@@ -13,6 +13,7 @@ interface AuthContextData {
   firstLaunch: boolean;
   login(userEmail: string, password: string, remember: boolean): Promise<void>;
   logout(): Promise<void>;
+  getStoredCredentials(): Promise<{ email: string; password: string } | null>;
 }
 
 export const AuthContext = createContext<AuthContextData>({
@@ -25,6 +26,7 @@ export const AuthContext = createContext<AuthContextData>({
   firstLaunch: true,
   login: async () => {},
   logout: async () => {},
+  getStoredCredentials: async () => null,
 });
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
@@ -41,6 +43,35 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const keys = await AsyncStorage.getAllKeys();
     const items = await AsyncStorage.multiGet(keys);
     console.log('Current AsyncStorage state:', items);
+  };
+
+  // Helper function to clear all auth data but keep credentials if they exist
+  const clearAllData = async () => {
+    console.log('Clearing all data...');
+
+    // Get all keys and stored credentials first
+    const keys = await AsyncStorage.getAllKeys();
+    const storedEmail = await AsyncStorage.getItem('rememberedEmail');
+    const storedPassword = await AsyncStorage.getItem('rememberedPassword');
+
+    // Remove all keys except remembered credentials
+    await AsyncStorage.multiRemove(
+      keys.filter((key) => key !== 'rememberedEmail' && key !== 'rememberedPassword')
+    );
+
+    // Clear API client
+    setAuthToken('');
+
+    // Clear state
+    setUserToken(null);
+    setUserId(null);
+    setUsername(null);
+    setEmail(null);
+    setPhone(null);
+    setFirstLaunch(false); // Don't reset to true, we want Login screen not Landing
+
+    // Verify storage is cleared except credentials
+    await logStorageState();
   };
 
   // on mount, load any saved auth state and check first launch
@@ -88,39 +119,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
       } catch (e) {
         console.warn('Failed to load auth data', e);
-        // On error, clear all auth data to be safe
         await clearAllData();
       } finally {
         setLoading(false);
       }
     })();
   }, []);
-
-  // Helper function to clear all data
-  const clearAllData = async () => {
-    console.log('Clearing all data...');
-
-    // Get all keys first
-    const keys = await AsyncStorage.getAllKeys();
-    console.log('Keys to clear:', keys);
-
-    // Clear AsyncStorage
-    await AsyncStorage.multiRemove(keys);
-
-    // Clear API client
-    setAuthToken('');
-
-    // Clear state
-    setUserToken(null);
-    setUserId(null);
-    setUsername(null);
-    setEmail(null);
-    setPhone(null);
-    setFirstLaunch(true);
-
-    // Verify storage is cleared
-    await logStorageState();
-  };
 
   const login = async (userEmail: string, password: string, remember: boolean) => {
     console.log('Logging in with remember:', remember);
@@ -137,18 +141,36 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     // Set token in API client
     setAuthToken(token);
 
+    // Always persist auth state for automatic login
+    await Promise.all([
+      AsyncStorage.setItem('token', token),
+      AsyncStorage.setItem('userId', userId),
+      ...(username ? [AsyncStorage.setItem('username', username)] : []),
+      ...(email ? [AsyncStorage.setItem('email', email)] : []),
+      ...(phone ? [AsyncStorage.setItem('phone', phone)] : []),
+    ]);
+
+    // If remember me is checked, store credentials
     if (remember) {
-      // Persist auth state only if "remember me" is checked
       await Promise.all([
-        AsyncStorage.setItem('token', token),
-        AsyncStorage.setItem('userId', userId),
-        ...(username ? [AsyncStorage.setItem('username', username)] : []),
-        ...(email ? [AsyncStorage.setItem('email', email)] : []),
-        ...(phone ? [AsyncStorage.setItem('phone', phone)] : []),
+        AsyncStorage.setItem('rememberedEmail', userEmail),
+        AsyncStorage.setItem('rememberedPassword', password),
       ]);
-      console.log('Auth state persisted');
-      await logStorageState();
+      console.log('Credentials stored for remember me');
     }
+
+    console.log('Auth state persisted');
+    await logStorageState();
+  };
+
+  const getStoredCredentials = async () => {
+    const email = await AsyncStorage.getItem('rememberedEmail');
+    const password = await AsyncStorage.getItem('rememberedPassword');
+
+    if (email && password) {
+      return { email, password };
+    }
+    return null;
   };
 
   const logout = async () => {
@@ -158,7 +180,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   return (
     <AuthContext.Provider
-      value={{ userToken, userId, username, email, phone, loading, firstLaunch, login, logout }}>
+      value={{
+        userToken,
+        userId,
+        username,
+        email,
+        phone,
+        loading,
+        firstLaunch,
+        login,
+        logout,
+        getStoredCredentials,
+      }}>
       {children}
     </AuthContext.Provider>
   );

@@ -430,15 +430,21 @@ export default function HomeScreen() {
                 setShowConfetti(true);
                 setTimeout(() => setShowConfetti(false), 3000);
 
+                // For wins, just use the currentBalance from API
+                setCurrentBalance(data.currentBalance);
+
                 // Show user's bet result
                 showSnackbar(
                   `You won! ${selectedCountry.symbol}${queuedBet.amount} on ${queuedBet.face}`,
                   'bet_result'
                 );
               } else {
-                // Reset on loss
+                // Reset consecutive wins and multiplier on loss
                 setConsecutiveWins(0);
                 setMultiplier(1);
+
+                // For losses, update wallet balance immediately
+                setWalletBalance(data.walletBalance);
 
                 // Show user's bet result
                 showSnackbar(
@@ -549,11 +555,10 @@ export default function HomeScreen() {
               </View>
 
               {/* Pending */}
-              {currentBalance !== 0 && (
-                <Text style={[styles.pending, { color: currentBalance > 0 ? '#0f0' : '#f55' }]}>
-                  {currentBalance > 0 ? '+' : ''}
+              {currentBalance > 0 && (
+                <Text style={[styles.pending, { color: '#0f0' }]}>
                   {selectedCountry.symbol}
-                  {Math.abs(displayCurrentBalance).toFixed(2)} pending
+                  {displayCurrentBalance.toFixed(2)} pending
                 </Text>
               )}
 
@@ -686,7 +691,15 @@ export default function HomeScreen() {
                       styles.disabledButton,
                   ]}
                   labelStyle={styles.takeoutLabel}>
-                  {takeoutLoading ? 'CLAIMING...' : 'TAKEOUT'}
+                  {takeoutLoading
+                    ? 'CLAIMING...'
+                    : currentBalance > 0
+                      ? `TAKEOUT ${selectedCountry.symbol}${
+                          displayCurrentBalance > 9999
+                            ? `${Math.floor(displayCurrentBalance / 1000)}k...`
+                            : displayCurrentBalance.toFixed(2)
+                        }`
+                      : 'TAKEOUT'}
                 </Button>
               </View>
             </View>

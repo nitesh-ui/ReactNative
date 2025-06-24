@@ -33,7 +33,7 @@ interface SnackbarMessage {
 export default function Login() {
   const { colors } = useTheme();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const { login } = useContext(AuthContext);
+  const { login, getStoredCredentials } = useContext(AuthContext);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -45,6 +45,19 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
 
   const [snackbarMessages, setSnackbarMessages] = useState<SnackbarMessage[]>([]);
+
+  // Load stored credentials on mount
+  useEffect(() => {
+    const loadStoredCredentials = async () => {
+      const credentials = await getStoredCredentials();
+      if (credentials) {
+        setEmail(credentials.email);
+        setPassword(credentials.password);
+        setRememberMe(true); // If we have stored credentials, set remember me to true
+      }
+    };
+    loadStoredCredentials();
+  }, [getStoredCredentials]);
 
   // Generate random ID for messages
   const genId = () =>
@@ -125,9 +138,9 @@ export default function Login() {
     } catch (err: any) {
       // Extract error message from API response
       const errorMessage =
-        err?.response?.data?.message ||
-        err?.response?.data?.error ||
-        err?.message ||
+        // err?.response?.data?.message ||
+        // err?.response?.data?.error ||
+        // err?.message ||
         'Login failed. Please try again.';
       showMessage(errorMessage, 'error');
     } finally {

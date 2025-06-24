@@ -147,10 +147,11 @@ export default function ResetPasswordScreen() {
         );
       }, 1500);
     } catch (err: any) {
-      showMessage(
-        err?.response?.data?.message || 'Failed to reset password. Please try again.',
-        'error'
-      );
+      // showMessage(
+      //   'Failed to reset password. Please try again.',
+      //   'error'
+      // );
+      showMessage('Failed to reset password. Please try again.', 'error');
     } finally {
       setLoading(false);
     }

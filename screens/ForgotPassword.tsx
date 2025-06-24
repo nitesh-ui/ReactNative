@@ -117,7 +117,8 @@ export default function ForgotPasswordScreen() {
       // Navigate to verification screen with email
       navigation.navigate('VerificationCode', { email: email.trim() });
     } catch (err: any) {
-      showMessage(err?.response?.data?.message || 'Failed to send OTP. Please try again.', 'error');
+      // showMessage(err?.response?.data?.message || 'Failed to send OTP. Please try again.', 'error');
+      showMessage('Failed to send OTP. Please try again.', 'error');
     } finally {
       setLoading(false);
     }
