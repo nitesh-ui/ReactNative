@@ -20,6 +20,7 @@ import { useNavigation } from '@react-navigation/native';
 import UserDropdown from '../components/UserDropdown';
 import { AuthContext } from '../context/AuthContext';
 import GradientButton from '../components/GradientButton';
+import apiClient from 'api/client';
 
 export default function DepositScreen() {
   const { colors } = useTheme();
@@ -56,14 +57,20 @@ export default function DepositScreen() {
     } as any);
 
     try {
-      const resp = await fetch('https://backend-s5bj.onrender.com/api/deposit/request', {
-        method: 'POST',
+      // const resp = await fetch('https://backend-s5bj.onrender.com/api/deposit/request', {
+      //   method: 'POST',
+      //   headers: {
+      //     'Content-Type': 'multipart/form-data',
+      //   },
+      //   body: form,
+      // });
+      const resp = await apiClient.post('/deposit/request', form, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
-        body: form,
       });
-      if (!resp.ok) throw new Error(`Status ${resp.status}`);
+      console.log(resp);
+      // if (!resp.ok) throw new Error(`Status ${resp.status}`);
       setSnackbar({ visible: true, message: 'Deposit proof submitted!' });
       setImage(null);
     } catch (e) {
@@ -94,7 +101,7 @@ export default function DepositScreen() {
             {/* QR + UPI */}
             <View style={styles.qrBlock}>
               <Image source={require('../assets/qr-placeholder.png')} style={styles.qrImage} />
-              <Text style={[styles.upiText, { color: colors.text }]}>UPI ID: {userId}@upi</Text>
+              <Text style={[styles.upiText, { color: colors.text }]}>9953887662@ptyes</Text>
             </View>
 
             <Divider style={styles.divider} />

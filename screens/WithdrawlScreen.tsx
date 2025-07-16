@@ -25,6 +25,7 @@ import AnimatedSnackbar from '../components/AnimatedSnackbar';
 import CoinLoader from '../components/CoinLoader';
 import UserDropdown from '../components/UserDropdown';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import apiClient from 'api/client';
 
 export default function WithdrawalScreen() {
   const { colors } = useTheme();
@@ -106,25 +107,34 @@ export default function WithdrawalScreen() {
     setLoading(true);
 
     try {
-      const resp = await fetch(' https://backend-s5bj.onrender.com/api/withdraw/request', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId,
-          name: fields.name,
-          bankName: fields.bank,
-          ifscCode: fields.ifsc,
-          accountNumber: fields.account,
-          confirmAccountNumber: fields.confirmAccount,
-          withdrawalAmount: Number(fields.amount),
-          upiId: fields.upi || undefined,
-        }),
+      // const resp = await fetch(' https://backend-s5bj.onrender.com/api/withdraw/request', {
+      //   method: 'POST',
+      //   headers: { 'Content-Type': 'application/json' },
+      //   body: JSON.stringify({
+      //     userId,
+      //     name: fields.name,
+      //     bankName: fields.bank,
+      //     ifscCode: fields.ifsc,
+      //     accountNumber: fields.account,
+      //     confirmAccountNumber: fields.confirmAccount,
+      //     withdrawalAmount: Number(fields.amount),
+      //     upiId: fields.upi || undefined,
+      //   }),
+      // });
+      const resp = await apiClient.post('/withdraw/request', {
+        userId,
+        name: fields.name,
+        bankName: fields.bank,
+        ifscCode: fields.ifsc,
+        accountNumber: fields.account,
+        confirmAccountNumber: fields.confirmAccount,
+        withdrawalAmount: Number(fields.amount),
+        upiId: fields.upi || undefined,
       });
-      const json = await resp.json();
-      if (!resp.ok) throw new Error(json.msg || resp.statusText);
+      // if (!resp.ok) throw new Error(json.msg || resp.statusText);
 
       setSuccessAnim(true);
-      setSnackbar({ visible: true, message: json.msg, type: 'success' });
+      setSnackbar({ visible: true, message: resp.data.msg, type: 'success' });
 
       // reset form
       setFields({

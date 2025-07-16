@@ -1,9 +1,9 @@
 {
   "expo": {
     "name": "Flip-To-WIN",
-    "slug": "my-expo-app",
+    "slug": "FLIP-To-WIN",
     "version": "1.0.0",
-    "package": "com.my-expo-app.flip-to-win",
+    "package": "com.sanaitatechnologies.flip-to-win",
     "newArchEnabled": true,
     "platforms": ["ios", "android", "web"],
     "web": {
@@ -28,10 +28,12 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "foregroundImage": "./assets/icon.png",
+        "backgroundColor": "#FFC107"
       },
-      "package": "com.ak3850.FlipToWIN"
+      "package": "com.sanaitatechnologies.FlipToWin",
+      "targetSdkVersion": 35,
+      "compileSdkVersion": 35
     },
     "jsEngine": "hermes",
     "experimental": {
@@ -39,7 +41,7 @@
     },
     "extra": {
       "eas": {
-        "projectId": "17e0e989-5dcf-4ebb-afd0-c69dafa89ae5"
+        "projectId": "1dd555cb-6bf1-4cd1-86ad-0f0ee7b4ae5c"
       }
     }
   }
