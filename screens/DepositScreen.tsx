@@ -10,10 +10,10 @@ import {
   ScrollView,
   StyleSheet,
   ImageBackground,
-  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
+import * as Clipboard from 'expo-clipboard';
 import { useTheme, Divider, Snackbar } from 'react-native-paper';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -45,8 +45,20 @@ export default function DepositScreen() {
     }
   };
 
+  const handleCopyUPI = () => {
+    Clipboard.setStringAsync('9953887662@ptyes');
+    setSnackbar({ visible: true, message: 'UPI ID copied to clipboard!' });
+  };
+
   const handleSubmit = async () => {
-    if (!image) return;
+    if (!image) {
+      setSnackbar({ visible: true, message: 'Please select an image.' });
+      return;
+    }
+    if (!userId || typeof userId !== 'string') {
+      setSnackbar({ visible: true, message: 'User ID is missing. Please log in again.' });
+      return;
+    }
     setLoading(true);
     const form = new FormData();
     form.append('userID', userId);
@@ -54,23 +66,11 @@ export default function DepositScreen() {
       uri: image,
       name: 'receipt.jpg',
       type: 'image/jpeg',
-    } as any);
+    } as any); // <-- Fix linter error
 
     try {
-      // const resp = await fetch('https://backend-s5bj.onrender.com/api/deposit/request', {
-      //   method: 'POST',
-      //   headers: {
-      //     'Content-Type': 'multipart/form-data',
-      //   },
-      //   body: form,
-      // });
-      const resp = await apiClient.post('/deposit/request', form, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
+      const resp = await apiClient.post('/deposit/request', form);
       console.log(resp);
-      // if (!resp.ok) throw new Error(`Status ${resp.status}`);
       setSnackbar({ visible: true, message: 'Deposit proof submitted!' });
       setImage(null);
     } catch (e) {
@@ -101,7 +101,12 @@ export default function DepositScreen() {
             {/* QR + UPI */}
             <View style={styles.qrBlock}>
               <Image source={require('../assets/qr-placeholder.png')} style={styles.qrImage} />
-              <Text style={[styles.upiText, { color: colors.text }]}>9953887662@ptyes</Text>
+              <View style={styles.upiRow}>
+                <Text style={[styles.upiText, { color: colors.text }]}>9953887662@ptyes</Text>
+                <TouchableOpacity onPress={handleCopyUPI} style={styles.copyIcon}>
+                  <MaterialIcons name="content-copy" size={18} color={colors.text} />
+                </TouchableOpacity>
+              </View>
             </View>
 
             <Divider style={styles.divider} />
@@ -176,10 +181,18 @@ const styles = StyleSheet.create({
     height: 200,
     borderColor: '#ccc',
   },
-  upiText: {
+  upiRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     marginTop: 12,
+  },
+  upiText: {
     fontSize: 16,
     fontWeight: '600',
+  },
+  copyIcon: {
+    padding: 4,
   },
   uploadBlock: {
     width: '100%',
