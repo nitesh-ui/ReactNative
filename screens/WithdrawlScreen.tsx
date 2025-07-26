@@ -11,7 +11,7 @@ import {
   StyleSheet,
   ImageBackground,
 } from 'react-native';
-import { useTheme, Button } from 'react-native-paper';
+import { useTheme } from 'react-native-paper';
 import { MotiView } from 'moti';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -32,13 +32,14 @@ export default function WithdrawalScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { userId, username } = useContext(AuthContext);
 
-  // form state
+  // Extracted state
+  const [account, setAccount] = useState('');
+  const [confirmAccount, setConfirmAccount] = useState('');
+
   const [fields, setFields] = useState({
     name: '',
     bank: '',
     ifsc: '',
-    account: '',
-    confirmAccount: '',
     amount: '',
     upi: '',
   });
@@ -46,13 +47,12 @@ export default function WithdrawalScreen() {
   const [shake, setShake] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(false);
   const [successAnim, setSuccessAnim] = useState(false);
-  const [snackbar, setSnackbar] = useState<{
-    visible: boolean;
-    message: string;
-    type: 'success' | 'error';
-  }>({ visible: false, message: '', type: 'success' });
+  const [snackbar, setSnackbar] = useState({
+    visible: false,
+    message: '',
+    type: 'success' as 'success' | 'error',
+  });
 
-  // auto‐hide
   useEffect(() => {
     if (snackbar.visible) {
       const t = setTimeout(() => setSnackbar((s) => ({ ...s, visible: false })), 3000);
@@ -82,11 +82,11 @@ export default function WithdrawalScreen() {
       e.ifsc = 'Invalid';
       s.ifsc = true;
     }
-    if (!fields.account) {
+    if (!account) {
       e.account = 'Required';
       s.account = true;
     }
-    if (fields.confirmAccount !== fields.account) {
+    if (confirmAccount !== account) {
       e.confirmAccount = 'No match';
       s.confirmAccount = true;
     }
@@ -94,7 +94,6 @@ export default function WithdrawalScreen() {
       e.amount = 'Invalid';
       s.amount = true;
     }
-    // UPI optional
 
     setErrors(e);
     setShake(s);
@@ -107,45 +106,30 @@ export default function WithdrawalScreen() {
     setLoading(true);
 
     try {
-      // const resp = await fetch(' https://backend-s5bj.onrender.com/api/withdraw/request', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify({
-      //     userId,
-      //     name: fields.name,
-      //     bankName: fields.bank,
-      //     ifscCode: fields.ifsc,
-      //     accountNumber: fields.account,
-      //     confirmAccountNumber: fields.confirmAccount,
-      //     withdrawalAmount: Number(fields.amount),
-      //     upiId: fields.upi || undefined,
-      //   }),
-      // });
       const resp = await apiClient.post('/withdraw/request', {
         userId,
         name: fields.name,
         bankName: fields.bank,
         ifscCode: fields.ifsc,
-        accountNumber: fields.account,
-        confirmAccountNumber: fields.confirmAccount,
+        accountNumber: account,
+        confirmAccountNumber: confirmAccount,
         withdrawalAmount: Number(fields.amount),
         upiId: fields.upi || undefined,
       });
-      // if (!resp.ok) throw new Error(json.msg || resp.statusText);
 
       setSuccessAnim(true);
       setSnackbar({ visible: true, message: resp.data.msg, type: 'success' });
 
-      // reset form
+      // Reset form
       setFields({
         name: '',
         bank: '',
         ifsc: '',
-        account: '',
-        confirmAccount: '',
         amount: '',
         upi: '',
       });
+      setAccount('');
+      setConfirmAccount('');
       setTimeout(() => setSuccessAnim(false), 2000);
     } catch (err: any) {
       console.error(err);
@@ -165,13 +149,13 @@ export default function WithdrawalScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ImageBackground source={require('../assets/bg1.jpg')} style={{ flex: 1 }} resizeMode="cover">
         <SafeAreaView style={{ flex: 1 }} edges={['top', 'left', 'right']}>
-          {/* Top Bar */}
           <View style={styles.topBar}>
             <TouchableOpacity onPress={() => navigation.navigate('HomeScreen')}>
               <Feather name="arrow-left" size={24} color="#fff" />
             </TouchableOpacity>
             <UserDropdown username={username ?? userId} />
           </View>
+
           <ScrollView contentContainerStyle={styles.scroll}>
             <MotiView
               from={{ opacity: 0, translateY: -20 }}
@@ -209,18 +193,26 @@ export default function WithdrawalScreen() {
             <FloatingInput
               label="Account No."
               iconName="credit-card"
-              value={fields.account}
-              onChangeText={(t) => handleChange('account', t)}
-              keyboardType="numeric"
+              value={account}
+              onChangeText={(t) => {
+                setAccount(t);
+                setErrors((e) => ({ ...e, account: '' }));
+                setShake((s) => ({ ...s, account: false }));
+              }}
+              keyboardType="number-pad"
               error={errors.account}
               shake={shake.account}
             />
             <FloatingInput
               label="Confirm Account"
               iconName="check-square"
-              value={fields.confirmAccount}
-              onChangeText={(t) => handleChange('confirmAccount', t)}
-              keyboardType="numeric"
+              value={confirmAccount}
+              onChangeText={(t) => {
+                setConfirmAccount(t);
+                setErrors((e) => ({ ...e, confirmAccount: '' }));
+                setShake((s) => ({ ...s, confirmAccount: false }));
+              }}
+              keyboardType="number-pad"
               error={errors.confirmAccount}
               shake={shake.confirmAccount}
             />
@@ -245,7 +237,6 @@ export default function WithdrawalScreen() {
             </GradientButton>
           </ScrollView>
 
-          {/* Success checkmark */}
           {successAnim && (
             <MotiView
               from={{ scale: 0, opacity: 0 }}

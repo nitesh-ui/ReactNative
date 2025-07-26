@@ -171,7 +171,9 @@ export default function Register() {
 
     setLoading(true);
     try {
+      console.log('debug 1');
       await signup(email.trim(), countryCode + phone, password, confirm, referralId);
+      console.log('debug 2');
       showMessage('Registered! Please log in.', 'success');
       setTimeout(
         () =>

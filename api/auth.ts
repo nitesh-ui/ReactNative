@@ -27,13 +27,19 @@ export async function signup(
   confirmPassword: string,
   referralId?: string
 ) {
-  const resp = await apiClient.post('/auth/signup', {
-    email,
-    phone,
-    password,
-    confirmPassword,
-    ...(referralId && { referralId }),
-  });
-  // You can choose to return resp.data or some message
-  return resp.data;
+  console.log('signup', email, phone, password, confirmPassword, referralId);
+  try {
+    const resp = await apiClient.post('/auth/signup', {
+      email,
+      phone,
+      password,
+      confirmPassword,
+      // referralId, // send it anyway — server can ignore empty
+    });
+    console.log('signup resp', resp.status, resp.data);
+    return resp.data;
+  } catch (err: any) {
+    console.error('Signup API error:', err?.response?.data || err.message);
+    throw err; // rethrow so the screen shows snackbar
+  }
 }

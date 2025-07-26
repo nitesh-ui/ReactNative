@@ -55,26 +55,33 @@ export default function DepositScreen() {
       setSnackbar({ visible: true, message: 'Please select an image.' });
       return;
     }
+
     if (!userId || typeof userId !== 'string') {
       setSnackbar({ visible: true, message: 'User ID is missing. Please log in again.' });
       return;
     }
+
     setLoading(true);
+
     const form = new FormData();
-    form.append('userID', userId);
+    form.append('userId', userId);
     form.append('paymentProof', {
       uri: image,
-      name: 'receipt.jpg',
-      type: 'image/jpeg',
-    } as any); // <-- Fix linter error
+      type: 'image/jpeg', // or image/png based on what you're uploading
+      name: 'payment-proof.jpg',
+    } as any); // <- required for RN FormData
 
     try {
-      const resp = await apiClient.post('/deposit/request', form);
-      console.log(resp);
+      const resp = await apiClient.post('/deposit/request', form, {
+        headers: {
+          'Content-Type': 'multipart/form-data', // Let Axios auto-set if needed
+        },
+      });
+      console.log('API response:', resp.data);
       setSnackbar({ visible: true, message: 'Deposit proof submitted!' });
       setImage(null);
-    } catch (e) {
-      console.error(e);
+    } catch (e: any) {
+      // console.error('Upload error:', e.response?.data || e.message);
       setSnackbar({ visible: true, message: 'Submission failed. Please try again.' });
     } finally {
       setLoading(false);
