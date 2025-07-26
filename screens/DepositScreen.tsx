@@ -10,6 +10,7 @@ import {
   ScrollView,
   StyleSheet,
   ImageBackground,
+  TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
@@ -20,6 +21,7 @@ import { useNavigation } from '@react-navigation/native';
 import UserDropdown from '../components/UserDropdown';
 import { AuthContext } from '../context/AuthContext';
 import GradientButton from '../components/GradientButton';
+import FloatingInput from '../components/FloatingInput';
 import apiClient from 'api/client';
 
 export default function DepositScreen() {
@@ -28,6 +30,7 @@ export default function DepositScreen() {
   const { userId } = useContext(AuthContext);
 
   const [image, setImage] = useState<string | null>(null);
+  const [amount, setAmount] = useState('');
   const [loading, setLoading] = useState(false);
   const [snackbar, setSnackbar] = useState<{ visible: boolean; message: string }>({
     visible: false,
@@ -56,6 +59,11 @@ export default function DepositScreen() {
       return;
     }
 
+    if (!amount || isNaN(Number(amount))) {
+      setSnackbar({ visible: true, message: 'Please enter a valid deposit amount.' });
+      return;
+    }
+
     if (!userId || typeof userId !== 'string') {
       setSnackbar({ visible: true, message: 'User ID is missing. Please log in again.' });
       return;
@@ -65,23 +73,24 @@ export default function DepositScreen() {
 
     const form = new FormData();
     form.append('userId', userId);
+    form.append('amount', amount);
     form.append('paymentProof', {
       uri: image,
-      type: 'image/jpeg', // or image/png based on what you're uploading
+      type: 'image/jpeg',
       name: 'payment-proof.jpg',
-    } as any); // <- required for RN FormData
+    } as any);
 
     try {
       const resp = await apiClient.post('/deposit/request', form, {
         headers: {
-          'Content-Type': 'multipart/form-data', // Let Axios auto-set if needed
+          'Content-Type': 'multipart/form-data',
         },
       });
       console.log('API response:', resp.data);
       setSnackbar({ visible: true, message: 'Deposit proof submitted!' });
       setImage(null);
+      setAmount('');
     } catch (e: any) {
-      // console.error('Upload error:', e.response?.data || e.message);
       setSnackbar({ visible: true, message: 'Submission failed. Please try again.' });
     } finally {
       setLoading(false);
@@ -104,6 +113,7 @@ export default function DepositScreen() {
             </TouchableOpacity>
             <UserDropdown username={userId || 'USER'} />
           </View>
+
           <ScrollView contentContainerStyle={styles.scroll}>
             {/* QR + UPI */}
             <View style={styles.qrBlock}>
@@ -117,6 +127,19 @@ export default function DepositScreen() {
             </View>
 
             <Divider style={styles.divider} />
+
+            {/* 🔹 Deposit Amount Field */}
+            <View style={styles.uploadBlock}>
+              <FloatingInput
+                label="Amount"
+                iconName="dollar-sign"
+                value={amount}
+                onChangeText={(text) => setAmount(text.replace(/[^0-9]/g, ''))}
+                keyboardType="numeric"
+                // error={errors.amount}
+                // shake={shake.amount}
+              />
+            </View>
 
             {/* Screenshot uploader */}
             <View style={styles.uploadBlock}>
@@ -239,5 +262,19 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     height: 48,
     justifyContent: 'center',
+  },
+  amountInputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  amountInput: {
+    flex: 1,
+    fontSize: 16,
+    marginLeft: 8,
+    color: '#000',
   },
 });
