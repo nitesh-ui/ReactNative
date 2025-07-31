@@ -1,5 +1,5 @@
 // screens/DepositScreen.tsx
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -10,7 +10,6 @@ import {
   ScrollView,
   StyleSheet,
   ImageBackground,
-  TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
@@ -18,15 +17,22 @@ import * as Clipboard from 'expo-clipboard';
 import { useTheme, Divider, Snackbar } from 'react-native-paper';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import UserDropdown from '../components/UserDropdown';
+import FloatingInput from '../components/FloatingInput';
 import { AuthContext } from '../context/AuthContext';
 import GradientButton from '../components/GradientButton';
-import FloatingInput from '../components/FloatingInput';
 import apiClient from 'api/client';
+
+type RootStackParamList = {
+  HomeScreen: undefined;
+};
+
+type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'HomeScreen'>;
 
 export default function DepositScreen() {
   const { colors } = useTheme();
-  const navigation = useNavigation();
+  const navigation = useNavigation<NavigationProp>();
   const { userId } = useContext(AuthContext);
 
   const [image, setImage] = useState<string | null>(null);
@@ -52,6 +58,23 @@ export default function DepositScreen() {
     Clipboard.setStringAsync('9953887662@ptyes');
     setSnackbar({ visible: true, message: 'UPI ID copied to clipboard!' });
   };
+
+  // Memoize the validation function
+  const validateNumeric = useMemo(() => {
+    const regex = /[^0-9]/g;
+    return (text: string) => text.replace(regex, '');
+  }, []);
+
+  const handleAmountChange = useCallback(
+    (text: string) => {
+      // Only update if the text actually changed and is valid
+      if (text !== amount) {
+        const numeric = validateNumeric(text);
+        setAmount(numeric);
+      }
+    },
+    [amount, validateNumeric]
+  );
 
   const handleSubmit = async () => {
     if (!image) {
@@ -119,9 +142,11 @@ export default function DepositScreen() {
             <View style={styles.qrBlock}>
               <Image source={require('../assets/qr-placeholder.png')} style={styles.qrImage} />
               <View style={styles.upiRow}>
-                <Text style={[styles.upiText, { color: colors.text }]}>9953887662@ptyes</Text>
+                <Text style={[styles.upiText, { color: colors.onBackground }]}>
+                  9953887662@ptyes
+                </Text>
                 <TouchableOpacity onPress={handleCopyUPI} style={styles.copyIcon}>
-                  <MaterialIcons name="content-copy" size={18} color={colors.text} />
+                  <MaterialIcons name="content-copy" size={18} color={colors.onBackground} />
                 </TouchableOpacity>
               </View>
             </View>
@@ -131,19 +156,18 @@ export default function DepositScreen() {
             {/* 🔹 Deposit Amount Field */}
             <View style={styles.uploadBlock}>
               <FloatingInput
-                label="Amount"
-                iconName="dollar-sign"
+                label="Deposit Amount"
                 value={amount}
-                onChangeText={(text) => setAmount(text.replace(/[^0-9]/g, ''))}
-                keyboardType="numeric"
-                // error={errors.amount}
-                // shake={shake.amount}
+                onChangeText={handleAmountChange}
+                // keyboardType="numeric"
+                shake={false}
+                hasError={false}
               />
             </View>
 
             {/* Screenshot uploader */}
             <View style={styles.uploadBlock}>
-              <Text style={[styles.uploadLabel, { color: colors.text }]}>
+              <Text style={[styles.uploadLabel, { color: colors.onBackground }]}>
                 Attach Screenshot of Payment
               </Text>
               {image ? (
@@ -153,7 +177,7 @@ export default function DepositScreen() {
                   <Text style={styles.dashedText}>No file selected</Text>
                 </View>
               )}
-              <GradientButton onPress={pickImage} style={styles.uploadButton} outline>
+              <GradientButton onPress={pickImage} style={styles.uploadButton}>
                 {image ? 'Change Screenshot' : 'Upload Screenshot'}
               </GradientButton>
             </View>
@@ -262,19 +286,5 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     height: 48,
     justifyContent: 'center',
-  },
-  amountInputWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-  },
-  amountInput: {
-    flex: 1,
-    fontSize: 16,
-    marginLeft: 8,
-    color: '#000',
   },
 });
