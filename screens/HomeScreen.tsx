@@ -16,7 +16,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme, Button } from 'react-native-paper';
-import { MotiView, MotiTransition } from 'moti';
+import { MotiView } from 'moti';
 import ConfettiCannon from 'react-native-confetti-cannon';
 import { Audio, AVPlaybackStatus } from 'expo-av';
 import * as Haptics from 'expo-haptics';
@@ -35,6 +35,27 @@ import { useCurrency } from '../context/CurrencyContext';
 const MIN_BET = 10;
 const { width: screenWidth } = Dimensions.get('window');
 const H_PADDING = screenWidth * 0.05;
+
+// Round status interface
+interface RoundStatus {
+  success: boolean;
+  nextRoundStartTime: number;
+  roundDuration: number;
+  lockTime: number;
+  serverTime: number;
+}
+
+// Game result interface
+interface GameResult {
+  success: boolean;
+  result: 'win' | 'loss';
+  coinFlip: 'head' | 'tail';
+  faceMatch: boolean;
+  currentBalance: number;
+  walletBalance: number;
+  totalBalance: number;
+  nextGame: RoundStatus;
+}
 
 const coinImages: Record<string, { head: any; tail: any }> = {
   IN: { head: require('../assets/in-head.png'), tail: require('../assets/in-tail.png') },
@@ -65,6 +86,16 @@ export default function HomeScreen() {
   const { userId, userToken, username } = useContext(AuthContext);
   const { bgSound } = useContext(SoundContext);
   const { convertAmount, loading: currencyLoading, getDefaultAmount } = useCurrency();
+
+  // Round management state
+  const [roundStatus, setRoundStatus] = useState<RoundStatus | null>(null);
+  const [serverTimeOffset, setServerTimeOffset] = useState(0);
+  const [countdown, setCountdown] = useState(-5); // Start at -5 to prevent initial animation
+  const [isRoundLocked, setIsRoundLocked] = useState(false);
+  const [nextRoundStartTime, setNextRoundStartTime] = useState(0);
+  const [checkTimer, setCheckTimer] = useState<NodeJS.Timeout | null>(null);
+  const initializedRef = useRef(false);
+  const [hasInitialized, setHasInitialized] = useState(false);
 
   // Play effect under bg music with fixed type
   const playEffect = useCallback(
@@ -129,9 +160,6 @@ export default function HomeScreen() {
     flippingRef.current = flipping;
   }, [flipping]);
 
-  // Countdown (drives simulation)
-  const [countdown, setCountdown] = useState(10);
-
   // Generate random ID for fake wins
   const genId = () =>
     Array.from({ length: 6 })
@@ -193,6 +221,123 @@ export default function HomeScreen() {
     }
   };
 
+  // Fetch round status from server
+  const fetchRoundStatus = useCallback(async () => {
+    try {
+      const response = await apiClient.get('/game/round-status', {
+        headers: { Authorization: `Bearer ${userToken}` }
+      });
+      
+      const data: RoundStatus = response.data;
+      setRoundStatus(data);
+      
+      // Calculate server time offset
+      const clientTime = Date.now();
+      const timeDrift = data.serverTime - clientTime;
+      setServerTimeOffset(timeDrift);
+      
+      return data;
+    } catch (error) {
+      console.error('Failed to fetch round status:', error);
+      showSnackbar('Failed to fetch round status', 'error');
+      return null;
+    }
+  }, [userToken]);
+
+  // Calculate countdown based on server time
+  const calculateCountdown = useCallback(() => {
+    if (!roundStatus) return 0;
+    
+    const currentServerTime = Date.now() + serverTimeOffset;
+    const timeUntilNextRound = roundStatus.nextRoundStartTime - currentServerTime;
+    
+    return Math.max(0, Math.floor(timeUntilNextRound / 1000));
+  }, [roundStatus, serverTimeOffset]);
+
+  // Handle API response and set up timing
+  const handleApiResponse = useCallback((data: RoundStatus) => {
+    // Store the nextRoundStartTime
+    const nextRoundStart = data.nextRoundStartTime;
+    setNextRoundStartTime(nextRoundStart);
+    
+    // Calculate server-client time drift
+    const clientTime = Date.now();
+    const serverTime = data.serverTime;
+    const timeDrift = serverTime - clientTime;
+    setServerTimeOffset(timeDrift);
+    
+    // Clear existing timer
+    if (checkTimer) {
+      clearTimeout(checkTimer);
+    }
+    
+    // Calculate time until next round + 2000ms buffer
+    const currentTime = Date.now();
+    const timeUntilNextRound = nextRoundStart - currentTime;
+    const timerDelay = Math.max(0, timeUntilNextRound + 2000);
+    
+    // Set up a timer to refresh at nextRoundStartTime + 2000ms
+    const newCheckTimer = setTimeout(() => {
+      fetchRoundStatus().then((newData) => {
+        if (newData) {
+          handleApiResponse(newData);
+        }
+      });
+    }, timerDelay);
+    
+    setCheckTimer(newCheckTimer as any);
+  }, [checkTimer, fetchRoundStatus]);
+
+  // Remove this function as it's no longer needed
+
+  // Update countdown smoothly
+  useEffect(() => {
+    if (!roundStatus) return;
+    
+    const updateCountdown = () => {
+      const newCountdown = calculateCountdown();
+      console.log('Countdown update:', { old: countdown, new: newCountdown });
+      setCountdown(newCountdown);
+      
+      // Check if round is locked (within lockTime of next round)
+      const currentServerTime = Date.now() + serverTimeOffset;
+      const timeUntilNextRound = roundStatus.nextRoundStartTime - currentServerTime;
+      setIsRoundLocked(timeUntilNextRound <= roundStatus.lockTime);
+    };
+    
+    // Update immediately
+    updateCountdown();
+    
+    // Then update every 500ms for smoother countdown
+    const interval = setInterval(updateCountdown, 500);
+    
+    return () => clearInterval(interval);
+  }, [roundStatus, serverTimeOffset, calculateCountdown, countdown]);
+
+  // Fetch round status on app load - only once
+  useEffect(() => {
+    if (initializedRef.current) return; // Prevent duplicate initialization
+    
+    const initializeRoundStatus = async () => {
+      initializedRef.current = true;
+      const data = await fetchRoundStatus();
+      if (data) {
+        handleApiResponse(data);
+        setHasInitialized(true);
+      }
+    };
+    initializeRoundStatus();
+    
+    // Cleanup timer on unmount
+    return () => {
+      if (checkTimer) {
+        clearTimeout(checkTimer);
+      }
+    };
+  }, []); // Empty dependency array - only run once on mount
+
+
+
   // Fetch balances once
   const fetchBalance = useCallback(async () => {
     try {
@@ -231,17 +376,16 @@ export default function HomeScreen() {
 
   // Animation configurations
   const timingConfig = {
-    type: 'timing',
+    type: 'timing' as const,
     duration: 1000,
-    delay: 0,
-  } as const;
+  };
 
   const springConfig = {
-    type: 'spring',
+    type: 'spring' as const,
     damping: 10,
     mass: 1,
     stiffness: 100,
-  } as const;
+  };
 
   // Update displayed balances when currency changes
   const [displayBalance, setDisplayBalance] = useState(0);
@@ -314,6 +458,11 @@ export default function HomeScreen() {
       return;
     }
 
+    if (isRoundLocked) {
+      showSnackbar('Round is locked. Please wait for next round.', 'error');
+      return;
+    }
+
     setQueuedBet({
       amount: multipliedBet,
       face: selectedFace,
@@ -360,37 +509,34 @@ export default function HomeScreen() {
 
   const { head, tail } = coinImages[selectedCountry.code];
 
-  // Update countdown effect to handle simulation results better
+  // Execute bet when countdown reaches 0
   useEffect(() => {
+    console.log('Countdown effect triggered:', { countdown, queuedBet: !!queuedBet });
+    
     if (countdown === 0) {
-      const executeSimulation = async () => {
-        if (!queuedBet) {
-          // No bet queued - just do animation and simulation
-          await flipSound?.replayAsync();
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-          setFlipping(true);
-          setRotation((r) => r + 720);
-
-          // Random result for animation
-          setFlipResult(Math.random() > 0.5 ? 'HEAD' : 'TAIL');
-
-          // Wait for flip animation
-          await new Promise((resolve) => setTimeout(resolve, 800));
-          setFlipping(false);
-
-          // Run fake wins simulation with single message
-          setSimulating(true);
-          await showSimulationWinners(5);
-          setSimulating(false);
-        } else {
-          // Execute real bet
+      console.log('Countdown reached 0, executing...');
+      
+      if (queuedBet) {
+        console.log('Executing bet with queued bet');
+        // Execute queued bet
+        const executeBet = async () => {
           try {
             // Convert multiplied bet to INR for server
             const inrBet = await convertAmount(queuedBet.amount, queuedBet.countryCode, 'IN');
 
             // Start animation
-            await flipSound?.replayAsync();
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+            try {
+              await flipSound?.replayAsync();
+            } catch (error) {
+              console.log('Audio failed during bet, continuing without sound:', error);
+            }
+            
+            try {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+            } catch (error) {
+              console.log('Haptics failed during bet, continuing without vibration:', error);
+            }
+            
             setFlipping(true);
             setRotation((r) => r + 720);
 
@@ -406,18 +552,24 @@ export default function HomeScreen() {
                 { headers: { Authorization: `Bearer ${userToken}` } }
               );
 
+              const gameResult: GameResult = data;
+
               // Wait for flip animation to complete
               await new Promise((resolve) => setTimeout(resolve, 800));
 
               // Update game state
-              setFlipResult(data.coinFlip.toUpperCase());
-              setCurrentBalance(data.currentBalance);
-              setWalletBalance(data.walletBalance);
+              setFlipResult(gameResult.coinFlip.toUpperCase() as 'HEAD' | 'TAIL');
+              setCurrentBalance(gameResult.currentBalance);
+              setWalletBalance(gameResult.walletBalance);
+
+              // Update round status with next game info and set up precise timing
+              setRoundStatus(gameResult.nextGame);
+              handleApiResponse(gameResult.nextGame);
 
               // Complete animation
               setFlipping(false);
 
-              const won = data.result === 'win';
+              const won = gameResult.result === 'win';
               if (won) {
                 setConsecutiveWins((prev) => {
                   const newWins = prev + 1;
@@ -430,9 +582,6 @@ export default function HomeScreen() {
                 setShowConfetti(true);
                 setTimeout(() => setShowConfetti(false), 3000);
 
-                // For wins, just use the currentBalance from API
-                setCurrentBalance(data.currentBalance);
-
                 // Show user's bet result
                 showSnackbar(
                   `You won! ${selectedCountry.symbol}${queuedBet.amount} on ${queuedBet.face}`,
@@ -443,9 +592,6 @@ export default function HomeScreen() {
                 setConsecutiveWins(0);
                 setMultiplier(1);
 
-                // For losses, update wallet balance immediately
-                setWalletBalance(data.walletBalance);
-
                 // Show user's bet result
                 showSnackbar(
                   `You lost ${selectedCountry.symbol}${queuedBet.amount} on ${queuedBet.face}`,
@@ -454,7 +600,7 @@ export default function HomeScreen() {
               }
               await playEffect(won ? winSound : loseSound);
 
-              // Run fake wins simulation after real bet with single message
+              // Run fake wins simulation after real bet
               setSimulating(true);
               await showSimulationWinners(5);
               setSimulating(false);
@@ -474,15 +620,47 @@ export default function HomeScreen() {
             await new Promise((resolve) => setTimeout(resolve, 800));
             setFlipping(false);
           }
-        }
+        };
 
-        setCountdown(10); // Reset timer after execution
-      };
+        executeBet();
+      } else {
+        console.log('Executing simulation without bet');
+        // No bet queued - show coin flip animation and simulation
+        const executeSimulation = async () => {
+          console.log('Starting simulation animation');
+          // Start animation
+          try {
+            await flipSound?.replayAsync();
+          } catch (error) {
+            console.log('Audio failed, continuing without sound:', error);
+          }
+          
+          try {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+          } catch (error) {
+            console.log('Haptics failed, continuing without vibration:', error);
+          }
+          
+          setFlipping(true);
+          setRotation((r) => r + 720);
 
-      executeSimulation();
-    } else {
-      const timer = setTimeout(() => setCountdown((c) => c - 1), 1000);
-      return () => clearTimeout(timer);
+          // Random result for animation
+          setFlipResult(Math.random() > 0.5 ? 'HEAD' : 'TAIL');
+
+          // Wait for flip animation
+          await new Promise((resolve) => setTimeout(resolve, 800));
+          setFlipping(false);
+
+          console.log('Starting simulation winners');
+          // Run fake wins simulation
+          setSimulating(true);
+          await showSimulationWinners(5);
+          setSimulating(false);
+          console.log('Simulation completed');
+        };
+
+        executeSimulation();
+      }
     }
   }, [
     countdown,
@@ -495,7 +673,50 @@ export default function HomeScreen() {
     userToken,
     userId,
     selectedCountry.symbol,
+    fetchRoundStatus,
   ]);
+
+  // Force simulation when countdown reaches 0 (backup)
+  useEffect(() => {
+    if (countdown === 0 && !queuedBet && !flipping && !simulating) {
+      console.log('Backup simulation triggered - countdown 0, no bet, not flipping/simulating');
+      
+              const executeSimulation = async () => {
+          console.log('Starting backup simulation animation');
+          // Start animation
+          try {
+            await flipSound?.replayAsync();
+          } catch (error) {
+            console.log('Audio failed, continuing without sound:', error);
+          }
+          
+          try {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+          } catch (error) {
+            console.log('Haptics failed, continuing without vibration:', error);
+          }
+          
+          setFlipping(true);
+          setRotation((r) => r + 720);
+
+          // Random result for animation
+          setFlipResult(Math.random() > 0.5 ? 'HEAD' : 'TAIL');
+
+          // Wait for flip animation
+          await new Promise((resolve) => setTimeout(resolve, 800));
+          setFlipping(false);
+
+          console.log('Starting backup simulation winners');
+          // Run fake wins simulation
+          setSimulating(true);
+          await showSimulationWinners(5);
+          setSimulating(false);
+          console.log('Backup simulation completed');
+        };
+
+      executeSimulation();
+    }
+  }, [countdown, queuedBet, flipping, simulating, flipSound, showSimulationWinners]);
 
   return (
     <KeyboardAvoidingView
@@ -531,7 +752,6 @@ export default function HomeScreen() {
                       rotateX: flipResult === 'HEAD' ? `${rotation}deg` : `${rotation + 180}deg`,
                       translateY: flipping ? -80 : 0,
                     }}
-                    transition={timingConfig}
                     style={styles.coinWrapper}>
                     <Image source={head} style={styles.coinImage} />
                   </MotiView>
@@ -541,7 +761,6 @@ export default function HomeScreen() {
                       rotateX: flipResult === 'TAIL' ? `${rotation}deg` : `${rotation + 180}deg`,
                       translateY: flipping ? -40 : 0,
                     }}
-                    transition={timingConfig}
                     style={[styles.coinWrapper, styles.backface]}>
                     <Image source={tail} style={styles.coinImage} />
                   </MotiView>
@@ -549,7 +768,6 @@ export default function HomeScreen() {
                 <MotiView
                   from={{ scaleX: 1.4, opacity: 0.6 }}
                   animate={{ scaleX: flipping ? 1 : 1.4, opacity: flipping ? 0.3 : 0.6 }}
-                  transition={timingConfig}
                   style={styles.shadow}
                 />
               </View>
@@ -629,8 +847,7 @@ export default function HomeScreen() {
                   <MotiView
                     key={face}
                     from={{ scale: 1 }}
-                    animate={{ scale: selectedFace === face ? 1.1 : 1 }}
-                    transition={springConfig}>
+                    animate={{ scale: selectedFace === face ? 1.1 : 1 }}>
                     <Button
                       mode={selectedFace === face ? 'contained' : 'outlined'}
                       onPress={() => setSelectedFace(face)}
@@ -652,23 +869,30 @@ export default function HomeScreen() {
 
               {/* Actions + Countdown */}
               <View style={styles.actions}>
-                <Text style={styles.timerLabel}>
-                  {queuedBet ? `Executing bet in ${countdown}s` : `Next auto-flip in ${countdown}s`}
-                </Text>
+                <View style={{ height: 20, justifyContent: 'center', marginBottom: 8 }}>
+                  {countdown <= 10 && countdown > 0 ? (
+                    <Text style={styles.timerLabel}>
+                      {queuedBet ? `Executing bet in ${countdown}s` : `Next round in ${countdown}s`}
+                    </Text>
+                  ) : (
+                    <Text style={[styles.timerLabel, { opacity: 0 }]}>
+                      Next round in 10s
+                    </Text>
+                  )}
+                </View>
 
                 <MotiView
                   from={{ shadowRadius: 5, shadowOpacity: 0.4 }}
                   animate={{ shadowRadius: [5, 20, 5], shadowOpacity: [0.4, 0.8, 0.4] }}
-                  transition={{ ...timingConfig, loop: true, duration: 2000 }}
                   style={[styles.flipGlow, { shadowColor: colors.primary }]}>
                   <Button
                     mode="contained"
                     onPress={handleFlip}
-                    disabled={flipping || simulating || queuedBet !== null}
+                    disabled={flipping || simulating || queuedBet !== null || isRoundLocked}
                     style={[
                       styles.flipBtn,
                       { backgroundColor: colors.primary },
-                      (flipping || simulating || queuedBet !== null || takeoutLoading) &&
+                      (flipping || simulating || queuedBet !== null || takeoutLoading || isRoundLocked) &&
                         styles.disabledButton,
                     ]}
                     labelStyle={{ color: '#000', fontWeight: 'bold', fontSize: 18 }}>
@@ -713,7 +937,6 @@ export default function HomeScreen() {
                 from={{ scale: 0.8, opacity: 0, translateY: -20 }}
                 animate={{ scale: 1, opacity: 1, translateY: 0 }}
                 exit={{ scale: 0.8, opacity: 0, translateY: -20 }}
-                transition={{ type: 'spring', damping: 10 }}
                 style={styles.toastContainer}>
                 <LinearGradient
                   colors={getGroupColor(msg.group, msg.message)}
@@ -830,7 +1053,8 @@ const styles = StyleSheet.create({
   faceBtn: { width: 120, height: 48, borderRadius: 8, justifyContent: 'center' },
 
   actions: { width: '100%', alignItems: 'center' },
-  timerLabel: { fontSize: 14, color: '#fff', marginBottom: 8, textAlign: 'center' },
+  timerContainer: { height: 20, justifyContent: 'center', marginBottom: 8 },
+  timerLabel: { fontSize: 14, color: '#fff', textAlign: 'center' },
   timerCount: { fontWeight: '700' },
 
   flipGlow: {
