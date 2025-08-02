@@ -676,47 +676,7 @@ export default function HomeScreen() {
     fetchRoundStatus,
   ]);
 
-  // Force simulation when countdown reaches 0 (backup)
-  useEffect(() => {
-    if (countdown === 0 && !queuedBet && !flipping && !simulating) {
-      console.log('Backup simulation triggered - countdown 0, no bet, not flipping/simulating');
-      
-              const executeSimulation = async () => {
-          console.log('Starting backup simulation animation');
-          // Start animation
-          try {
-            await flipSound?.replayAsync();
-          } catch (error) {
-            console.log('Audio failed, continuing without sound:', error);
-          }
-          
-          try {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-          } catch (error) {
-            console.log('Haptics failed, continuing without vibration:', error);
-          }
-          
-          setFlipping(true);
-          setRotation((r) => r + 720);
-
-          // Random result for animation
-          setFlipResult(Math.random() > 0.5 ? 'HEAD' : 'TAIL');
-
-          // Wait for flip animation
-          await new Promise((resolve) => setTimeout(resolve, 800));
-          setFlipping(false);
-
-          console.log('Starting backup simulation winners');
-          // Run fake wins simulation
-          setSimulating(true);
-          await showSimulationWinners(5);
-          setSimulating(false);
-          console.log('Backup simulation completed');
-        };
-
-      executeSimulation();
-    }
-  }, [countdown, queuedBet, flipping, simulating, flipSound, showSimulationWinners]);
+  
 
   return (
     <KeyboardAvoidingView
