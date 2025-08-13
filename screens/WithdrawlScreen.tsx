@@ -218,7 +218,7 @@ export default function WithdrawalScreen() {
             />
             <FloatingInput
               label="Amount"
-              iconName="dollar-sign"
+              iconName="shopping-bag"
               value={fields.amount}
               onChangeText={(t) => handleChange('amount', t.replace(/[^0-9]/g, ''))}
               keyboardType="numeric"

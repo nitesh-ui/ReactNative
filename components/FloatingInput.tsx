@@ -1,5 +1,5 @@
 // components/FloatingInput.tsx
-import React, { useState } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { View, TextInput, Text, StyleSheet } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { MotiView } from 'moti';
@@ -17,7 +17,7 @@ interface Props {
   shake?: boolean;
 }
 
-export default function FloatingInput({
+const FloatingInput = React.memo(function FloatingInput({
   label,
   value,
   onChangeText,
@@ -30,6 +30,43 @@ export default function FloatingInput({
 }: Props) {
   const [isFocused, setIsFocused] = useState(false);
   const [showPassword, setShowPassword] = useState(!secure);
+
+  // Memoize the input style to prevent unnecessary recalculations
+  const inputStyle = useMemo(
+    () => [
+      styles.input,
+      {
+        color: '#fff',
+        fontSize: 16,
+        paddingVertical: 8,
+        paddingTop: 16,
+      },
+    ],
+    []
+  );
+
+  // Memoize the label transform style
+  const labelStyle = useMemo(
+    () => [
+      styles.label,
+      {
+        transform: [
+          {
+            translateY: isFocused || value ? -20 : 0,
+          },
+          {
+            scale: isFocused || value ? 0.8 : 1,
+          },
+        ],
+        color: hasError ? '#F44336' : isFocused ? '#BB86FC' : 'rgba(255,255,255,0.7)',
+      },
+    ],
+    [isFocused, value, hasError]
+  );
+
+  const handleFocus = useCallback(() => setIsFocused(true), []);
+  const handleBlur = useCallback(() => setIsFocused(false), []);
+  const togglePassword = useCallback(() => setShowPassword((prev) => !prev), []);
 
   return (
     <MotiView
@@ -56,29 +93,13 @@ export default function FloatingInput({
           />
         )}
         <View style={styles.inputWrapper}>
-          <Text
-            style={[
-              styles.label,
-              {
-                transform: [
-                  {
-                    translateY: isFocused || value ? -20 : 0,
-                  },
-                  {
-                    scale: isFocused || value ? 0.8 : 1,
-                  },
-                ],
-                color: hasError ? '#F44336' : isFocused ? '#BB86FC' : 'rgba(255,255,255,0.7)',
-              },
-            ]}>
-            {label}
-          </Text>
+          <Text style={labelStyle}>{label}</Text>
           <TextInput
             value={value}
             onChangeText={onChangeText}
-            style={styles.input}
-            onFocus={() => setIsFocused(true)}
-            onBlur={() => setIsFocused(false)}
+            style={inputStyle}
+            onFocus={handleFocus}
+            onBlur={handleBlur}
             secureTextEntry={!showPassword}
             keyboardType={keyboardType}
             autoCapitalize={autoCapitalize}
@@ -91,13 +112,15 @@ export default function FloatingInput({
             size={20}
             color="#fff"
             style={styles.icon}
-            onPress={() => setShowPassword(!showPassword)}
+            onPress={togglePassword}
           />
         )}
       </View>
     </MotiView>
   );
-}
+});
+
+export default FloatingInput;
 
 const styles = StyleSheet.create({
   container: {

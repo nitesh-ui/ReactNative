@@ -1,5 +1,5 @@
 // screens/DepositScreen.tsx
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -17,17 +17,26 @@ import * as Clipboard from 'expo-clipboard';
 import { useTheme, Divider, Snackbar } from 'react-native-paper';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import UserDropdown from '../components/UserDropdown';
+import FloatingInput from '../components/FloatingInput';
 import { AuthContext } from '../context/AuthContext';
 import GradientButton from '../components/GradientButton';
 import apiClient from 'api/client';
 
+type RootStackParamList = {
+  HomeScreen: undefined;
+};
+
+type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'HomeScreen'>;
+
 export default function DepositScreen() {
   const { colors } = useTheme();
-  const navigation = useNavigation();
+  const navigation = useNavigation<NavigationProp>();
   const { userId } = useContext(AuthContext);
 
   const [image, setImage] = useState<string | null>(null);
+  const [amount, setAmount] = useState('');
   const [loading, setLoading] = useState(false);
   const [snackbar, setSnackbar] = useState<{ visible: boolean; message: string }>({
     visible: false,
@@ -50,9 +59,31 @@ export default function DepositScreen() {
     setSnackbar({ visible: true, message: 'UPI ID copied to clipboard!' });
   };
 
+  // Memoize the validation function
+  const validateNumeric = useMemo(() => {
+    const regex = /[^0-9]/g;
+    return (text: string) => text.replace(regex, '');
+  }, []);
+
+  const handleAmountChange = useCallback(
+    (text: string) => {
+      // Only update if the text actually changed and is valid
+      if (text !== amount) {
+        const numeric = validateNumeric(text);
+        setAmount(numeric);
+      }
+    },
+    [amount, validateNumeric]
+  );
+
   const handleSubmit = async () => {
     if (!image) {
       setSnackbar({ visible: true, message: 'Please select an image.' });
+      return;
+    }
+
+    if (!amount || isNaN(Number(amount))) {
+      setSnackbar({ visible: true, message: 'Please enter a valid deposit amount.' });
       return;
     }
 
@@ -65,23 +96,24 @@ export default function DepositScreen() {
 
     const form = new FormData();
     form.append('userId', userId);
+    form.append('amount', amount);
     form.append('paymentProof', {
       uri: image,
-      type: 'image/jpeg', // or image/png based on what you're uploading
+      type: 'image/jpeg',
       name: 'payment-proof.jpg',
-    } as any); // <- required for RN FormData
+    } as any);
 
     try {
       const resp = await apiClient.post('/deposit/request', form, {
         headers: {
-          'Content-Type': 'multipart/form-data', // Let Axios auto-set if needed
+          'Content-Type': 'multipart/form-data',
         },
       });
       console.log('API response:', resp.data);
       setSnackbar({ visible: true, message: 'Deposit proof submitted!' });
       setImage(null);
+      setAmount('');
     } catch (e: any) {
-      // console.error('Upload error:', e.response?.data || e.message);
       setSnackbar({ visible: true, message: 'Submission failed. Please try again.' });
     } finally {
       setLoading(false);
@@ -104,23 +136,38 @@ export default function DepositScreen() {
             </TouchableOpacity>
             <UserDropdown username={userId || 'USER'} />
           </View>
+
           <ScrollView contentContainerStyle={styles.scroll}>
             {/* QR + UPI */}
             <View style={styles.qrBlock}>
               <Image source={require('../assets/qr-placeholder.png')} style={styles.qrImage} />
               <View style={styles.upiRow}>
-                <Text style={[styles.upiText, { color: colors.text }]}>9953887662@ptyes</Text>
+                <Text style={[styles.upiText, { color: colors.onBackground }]}>
+                  9953887662@ptyes
+                </Text>
                 <TouchableOpacity onPress={handleCopyUPI} style={styles.copyIcon}>
-                  <MaterialIcons name="content-copy" size={18} color={colors.text} />
+                  <MaterialIcons name="content-copy" size={18} color={colors.onBackground} />
                 </TouchableOpacity>
               </View>
             </View>
 
             <Divider style={styles.divider} />
 
+            {/* 🔹 Deposit Amount Field */}
+            <View style={styles.uploadBlock}>
+              <FloatingInput
+                label="Deposit Amount"
+                value={amount}
+                onChangeText={handleAmountChange}
+                // keyboardType="numeric"
+                shake={false}
+                hasError={false}
+              />
+            </View>
+
             {/* Screenshot uploader */}
             <View style={styles.uploadBlock}>
-              <Text style={[styles.uploadLabel, { color: colors.text }]}>
+              <Text style={[styles.uploadLabel, { color: colors.onBackground }]}>
                 Attach Screenshot of Payment
               </Text>
               {image ? (
@@ -130,7 +177,7 @@ export default function DepositScreen() {
                   <Text style={styles.dashedText}>No file selected</Text>
                 </View>
               )}
-              <GradientButton onPress={pickImage} style={styles.uploadButton} outline>
+              <GradientButton onPress={pickImage} style={styles.uploadButton}>
                 {image ? 'Change Screenshot' : 'Upload Screenshot'}
               </GradientButton>
             </View>
